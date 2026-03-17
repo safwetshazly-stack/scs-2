@@ -1,6 +1,15 @@
 FROM node:20-alpine AS base
 WORKDIR /app
-RUN apk add --no-cache curl
+RUN apk add --no-cache curl libc6-compat openssl
+
+FROM base AS dev
+COPY package*.json ./
+RUN npm install
+COPY prisma ./prisma
+RUN npx prisma generate
+COPY tsconfig.json ./
+EXPOSE 4000
+CMD ["npm", "run", "dev"]
 
 FROM base AS deps
 COPY package*.json ./

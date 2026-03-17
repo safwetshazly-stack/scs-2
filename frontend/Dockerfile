@@ -2,6 +2,15 @@ FROM node:20-alpine AS base
 WORKDIR /app
 RUN apk add --no-cache libc6-compat
 
+FROM base AS dev
+COPY package*.json ./
+RUN npm install
+COPY next.config.js tsconfig.json tailwind.config.js postcss.config.js ./
+COPY public ./public
+EXPOSE 3000
+ENV NODE_ENV=development
+CMD ["npm", "run", "dev"]
+
 FROM base AS deps
 COPY package*.json ./
 RUN npm ci

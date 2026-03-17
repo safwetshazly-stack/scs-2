@@ -28,7 +28,7 @@ services:
   backend:
     build:
       context: ./backend
-      target: base
+      target: dev
     command: npm run dev
     environment:
       NODE_ENV: development
@@ -52,7 +52,7 @@ services:
   frontend:
     build:
       context: ./frontend
-      target: base
+      target: dev
     command: npm run dev
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:4000/api

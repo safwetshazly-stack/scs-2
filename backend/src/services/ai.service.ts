@@ -1,12 +1,24 @@
 import OpenAI from 'openai'
-import Anthropic from '@anthropic-ai/sdk'
 import { prisma, redis } from '../server'
 import { env } from '../config/env'
 import { AppError } from '../utils/errors'
 import { logger } from '../utils/logger'
 
+let Anthropic: any = null
+let anthropic: any = null
+
+// Try to initialize Anthropic if available
+try {
+  const AnthropicModule = require('@anthropic-ai/sdk')
+  Anthropic = AnthropicModule.default || AnthropicModule
+  if (env.ANTHROPIC_API_KEY) {
+    anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY })
+  }
+} catch (e) {
+  logger.warn('Anthropic SDK not available - Claude models will not work')
+}
+
 const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY })
-const anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY })
 
 // Monthly token limit per free user
 const FREE_TOKEN_LIMIT = 50000
@@ -125,6 +137,10 @@ async function callGPT4(messages: any[], systemPrompt: string): Promise<{ conten
 
 // ─── CALL CLAUDE ──────────────────────────────────────────
 async function callClaude(messages: any[], systemPrompt: string): Promise<{ content: string; tokens: number }> {
+  if (!anthropic) {
+    throw new AppError('Claude model is not available. Please configure the Anthropic API key.', 503)
+  }
+  
   const response = await anthropic.messages.create({
     model: 'claude-3-5-sonnet-20241022',
     max_tokens: 2000,
@@ -262,6 +278,10 @@ export async function streamAiRequest(req: AiRequest, onChunk: (chunk: string) =
   })
 
   let fullResponse = ''
+
+  if (!anthropic) {
+    throw new AppError('Claude model is not available. Please configure the Anthropic API key.', 503)
+  }
 
   // Stream from Claude
   const stream = anthropic.messages.stream({

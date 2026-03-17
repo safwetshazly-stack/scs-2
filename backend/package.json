@@ -32,7 +32,6 @@
     "dotenv": "^16.4.5",
     "stripe": "^16.0.0",
     "openai": "^4.52.1",
-    "anthropic": "^0.25.0",
     "express-mongo-sanitize": "^2.2.0",
     "xss": "^1.0.15",
     "hpp": "^0.2.3",
