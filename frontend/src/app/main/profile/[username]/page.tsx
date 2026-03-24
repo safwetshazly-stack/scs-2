@@ -36,7 +36,7 @@ export default function ProfilePage() {
         <div className="px-6 pb-6">
           <div className="flex items-end justify-between -mt-10 mb-4">
             <div className="w-20 h-20 rounded-full border-4 border-[var(--bg)] bg-brand-500 flex items-center justify-center text-white text-2xl font-bold shadow-lg overflow-hidden">
-              {profile.profile?.avatar ? <img src={profile.profile.avatar} className="w-full h-full object-cover" alt="" /> : profile.username[0].toUpperCase()}
+              {profile.profile?.avatar ? <img src={profile.profile.avatar} className="w-full h-full object-cover" alt={profile.username || 'User avatar'} /> : profile.username[0].toUpperCase()}
             </div>
             <div className="flex gap-2 mt-12">
               {isMe ? (

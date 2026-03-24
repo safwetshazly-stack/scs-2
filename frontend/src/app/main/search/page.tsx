@@ -130,7 +130,7 @@ export default function SearchPage() {
                   <motion.div key={u.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
                     <Link href={`/main/profile/${u.username}`} className="flex items-center gap-4 p-4 card card-hover">
                       <div className="w-12 h-12 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center text-brand-600 font-bold text-lg flex-shrink-0">
-                        {u.profile?.avatar ? <img src={u.profile.avatar} className="w-full h-full object-cover rounded-full" alt="" /> : u.username[0].toUpperCase()}
+                        {u.profile?.avatar ? <img src={u.profile.avatar} className="w-full h-full object-cover rounded-full" alt={u.username || 'User avatar'} /> : u.username[0].toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-sm text-[var(--text)]">{u.username}</p>

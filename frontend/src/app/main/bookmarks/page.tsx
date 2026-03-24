@@ -94,6 +94,7 @@ export default function BookmarksPage() {
                   type: bookmark.resourceType,
                 })}
                 className="p-2 rounded-lg text-[var(--text-tertiary)] hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
+                aria-label="حذف العلامة"
               >
                 <Trash2 size={15} />
               </button>

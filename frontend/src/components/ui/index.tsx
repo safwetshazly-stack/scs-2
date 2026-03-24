@@ -168,7 +168,7 @@ export function Modal({ open, onClose, title, children, size = 'md', className }
             {title && (
               <div className="flex items-center justify-between mb-5">
                 <h2 className="font-display font-bold text-xl text-[var(--text)]">{title}</h2>
-                <button onClick={onClose} className="btn-ghost p-1.5 rounded-lg"><X size={18} /></button>
+                <button onClick={onClose} className="btn-ghost p-1.5 rounded-lg" aria-label="إغلاق النافذة"><X size={18} /></button>
               </div>
             )}
             {children}
@@ -247,7 +247,8 @@ export function StarRating({ value, onChange, size = 18, readonly }: {
           onClick={() => !readonly && onChange?.(star)}
           onMouseEnter={() => !readonly && setHoverVal(star)}
           onMouseLeave={() => !readonly && setHoverVal(0)}
-          className={cn('transition-transform', !readonly && 'hover:scale-110', readonly && 'cursor-default')}>
+          className={cn('transition-transform', !readonly && 'hover:scale-110', readonly && 'cursor-default')}
+          aria-label={`تقييم ${star} من 5 نجوم`}>
           <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
             <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
               fill={(hoverVal || value) >= star ? '#F59E0B' : 'none'}

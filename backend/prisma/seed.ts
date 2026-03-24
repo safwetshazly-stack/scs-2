@@ -143,8 +143,7 @@ async function main() {
   await prisma.featureFlag.upsert({ where: { name: 'marketplace_services' }, update: {}, create: { name: 'marketplace_services', enabled: false } })
 
   console.log('✅ Seed completed!')
-  console.log('👤 Admin: admin@scsplatform.com / Admin@123456')
-  console.log('👨‍🏫 Instructor: instructor@scsplatform.com / Demo@123456')
+  console.log('� Demo accounts created - credentials available in documentation')
 }
 
 main().catch(console.error).finally(() => prisma.$disconnect())

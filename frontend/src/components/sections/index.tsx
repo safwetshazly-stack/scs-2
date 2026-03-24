@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import {
   Users, BookOpen, Bot, MessageCircle, ShieldCheck,
   Zap, Globe, TrendingUp, Star, ArrowLeft, CheckCircle,
-  Code, FileText, Image, BarChart3
+  Code, FileText, Image, BarChart3, Sparkles
 } from 'lucide-react'
 
 // ─── ANIMATION HELPER ────────────────────────────────────
@@ -333,7 +333,7 @@ export function AISection() {
               <div className="p-3 border-t border-[var(--border)]">
                 <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border)]">
                   <input className="flex-1 bg-transparent text-xs text-[var(--text-tertiary)] outline-none" placeholder="اسأل SCS AI أي شيء..." readOnly />
-                  <button className="w-7 h-7 rounded-lg bg-brand-500 flex items-center justify-center flex-shrink-0">
+                  <button className="w-7 h-7 rounded-lg bg-brand-500 flex items-center justify-center flex-shrink-0" aria-label="Send message to AI">
                     <ArrowLeft size={12} className="text-white" />
                   </button>
                 </div>

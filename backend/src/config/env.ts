@@ -28,15 +28,18 @@ export const env = {
   FRONTEND_URL: optional('FRONTEND_URL', 'http://localhost:3000'),
   MOBILE_URL: optional('MOBILE_URL', ''),
 
-  OPENAI_API_KEY: optional('OPENAI_API_KEY'),
-  ANTHROPIC_API_KEY: optional('ANTHROPIC_API_KEY'),
-  DEEPSEEK_API_KEY: optional('DEEPSEEK_API_KEY'),
+  // AI Services - At least one is required for AI features to work
+  OPENAI_API_KEY: optional('OPENAI_API_KEY', ''),
+  ANTHROPIC_API_KEY: optional('ANTHROPIC_API_KEY', ''),
+  DEEPSEEK_API_KEY: optional('DEEPSEEK_API_KEY', ''),
 
-  STRIPE_SECRET_KEY: optional('STRIPE_SECRET_KEY'),
-  STRIPE_WEBHOOK_SECRET: optional('STRIPE_WEBHOOK_SECRET'),
+  // Payment Processing - Required for payment features
+  STRIPE_SECRET_KEY: optional('STRIPE_SECRET_KEY', ''),
+  STRIPE_WEBHOOK_SECRET: optional('STRIPE_WEBHOOK_SECRET', ''),
 
-  AWS_ACCESS_KEY: optional('AWS_ACCESS_KEY'),
-  AWS_SECRET_KEY: optional('AWS_SECRET_KEY'),
+  // File Storage - Required for file uploads
+  AWS_ACCESS_KEY: optional('AWS_ACCESS_KEY', ''),
+  AWS_SECRET_KEY: optional('AWS_SECRET_KEY', ''),
   AWS_REGION: optional('AWS_REGION', 'us-east-1'),
   AWS_BUCKET: optional('AWS_BUCKET', 'scs-platform'),
 

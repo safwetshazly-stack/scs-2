@@ -157,6 +157,7 @@ export default function AIPage() {
               <button
                 onClick={(e) => { e.stopPropagation(); deleteConversation.mutate(conv.id) }}
                 className="opacity-0 group-hover:opacity-100 p-1 rounded hover:text-red-500 transition-all"
+                aria-label="حذف المحادثة"
               >
                 <Trash2 size={12} />
               </button>
@@ -298,7 +299,7 @@ export default function AIPage() {
         <div className="p-3 sm:p-4 bg-[var(--bg)] border-t border-[var(--border)]">
           <div className="max-w-3xl mx-auto">
             <div className="flex items-end gap-2 p-2 rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border)] focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-500/10 transition-all">
-              <button className="btn-ghost p-2 rounded-xl flex-shrink-0 self-end mb-0.5">
+              <button className="btn-ghost p-2 rounded-xl flex-shrink-0 self-end mb-0.5" aria-label="إرفاق ملف">
                 <Paperclip size={17} />
               </button>
               <textarea
@@ -309,7 +310,7 @@ export default function AIPage() {
                 placeholder="اسأل SCS AI أي شيء... (Shift+Enter للسطر الجديد)"
                 rows={1}
                 className="flex-1 bg-transparent text-sm text-[var(--text)] placeholder-[var(--text-tertiary)] outline-none resize-none max-h-40 py-2"
-                style={{ direction: 'rtl' }}
+                dir="rtl"
               />
               <button
                 onClick={handleSend}
@@ -320,6 +321,7 @@ export default function AIPage() {
                     ? 'bg-brand-500 text-white hover:bg-brand-600 hover:shadow-glow'
                     : 'bg-[var(--bg-tertiary)] text-[var(--text-tertiary)] cursor-not-allowed'
                 )}
+                aria-label="إرسال الرسالة"
               >
                 <Send size={16} />
               </button>

@@ -229,9 +229,15 @@ body {
   .writing-vertical { writing-mode: vertical-rl; }
 
   .no-scrollbar::-webkit-scrollbar { display: none; }
-  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  .no-scrollbar { -ms-overflow-style: none; }
+  @supports (scrollbar-width: none) {
+    .no-scrollbar { scrollbar-width: none; }
+  }
 
-  .text-balance { text-wrap: balance; }
+  .text-balance { word-break: break-word; }
+  @supports (text-wrap: balance) {
+    .text-balance { text-wrap: balance; }
+  }
 }
 
 /* ─── PROSE (markdown) ───────────────────────────────────── */

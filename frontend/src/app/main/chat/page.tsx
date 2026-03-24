@@ -161,9 +161,9 @@ export default function ChatPage() {
                 {isTyping && <p className="text-xs text-brand-500 animate-pulse">يكتب الآن...</p>}
               </div>
               <div className="flex items-center gap-1">
-                <button className="btn-ghost p-2 rounded-xl"><Phone size={17} /></button>
-                <button className="btn-ghost p-2 rounded-xl"><Video size={17} /></button>
-                <button className="btn-ghost p-2 rounded-xl"><MoreVertical size={17} /></button>
+                <button className="btn-ghost p-2 rounded-xl" aria-label="بدء مكالمة صوتية"><Phone size={17} /></button>
+                <button className="btn-ghost p-2 rounded-xl" aria-label="بدء مكالمة فيديو"><Video size={17} /></button>
+                <button className="btn-ghost p-2 rounded-xl" aria-label="المزيد من الخيارات"><MoreVertical size={17} /></button>
               </div>
             </div>
 
@@ -212,7 +212,7 @@ export default function ChatPage() {
             {/* Input */}
             <div className="p-3 bg-[var(--bg)] border-t border-[var(--border)]">
               <div className="flex items-end gap-2 px-3 py-2 rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border)] focus-within:border-brand-400 transition-colors">
-                <button className="btn-ghost p-1.5 rounded-lg flex-shrink-0 self-end mb-0.5"><Paperclip size={16} /></button>
+                <button className="btn-ghost p-1.5 rounded-lg flex-shrink-0 self-end mb-0.5" aria-label="إرفاق ملف"><Paperclip size={16} /></button>
                 <textarea
                   value={input}
                   onChange={e => handleTyping(e.target.value)}

@@ -7,16 +7,16 @@ export default function GlobalError({ error, reset }: { error: Error; reset: () 
   return (
     <html lang="ar" dir="rtl">
       <body>
-        <div className="min-h-screen flex items-center justify-center p-8" style={{ background: '#fff', fontFamily: 'system-ui' }}>
+        <div className="min-h-screen flex items-center justify-center p-8 bg-white font-system">
           <div className="text-center max-w-sm">
-            <div style={{ fontSize: '64px', marginBottom: '16px' }}>⚠️</div>
-            <h1 style={{ fontSize: '24px', fontWeight: 700, marginBottom: '12px', color: '#0f172a' }}>حدث خطأ غير متوقع</h1>
-            <p style={{ color: '#64748b', marginBottom: '24px' }}>نعتذر عن هذا الخطأ. يرجى المحاولة مرة أخرى.</p>
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-              <button onClick={reset} style={{ padding: '10px 24px', background: '#1A56DB', color: '#fff', borderRadius: '12px', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
+            <div className="text-8xl mb-4">⚠️</div>
+            <h1 className="text-2xl font-bold mb-3 text-slate-900">حدث خطأ غير متوقع</h1>
+            <p className="text-slate-500 mb-6">نعتذر عن هذا الخطأ. يرجى المحاولة مرة أخرى.</p>
+            <div className="flex gap-3 justify-center">
+              <button onClick={reset} className="px-6 py-2.5 bg-blue-700 text-white rounded-xl border-none cursor-pointer font-semibold hover:bg-blue-800 transition-colors">
                 إعادة المحاولة
               </button>
-              <a href="/" style={{ padding: '10px 24px', background: '#f1f5f9', color: '#0f172a', borderRadius: '12px', textDecoration: 'none', fontWeight: 600 }}>
+              <a href="/" className="px-6 py-2.5 bg-slate-100 text-slate-900 rounded-xl no-underline font-semibold hover:bg-slate-200 transition-colors">
                 الصفحة الرئيسية
               </a>
             </div>

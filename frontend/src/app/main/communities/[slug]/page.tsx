@@ -164,7 +164,7 @@ export default function CommunityPage() {
               {messages.map((msg: any) => (
                 <motion.div key={msg.id} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="flex items-start gap-3 group">
                   <div className="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center flex-shrink-0 text-brand-600 font-bold text-xs mt-0.5">
-                    {msg.sender?.profile?.avatar ? <img src={msg.sender.profile.avatar} className="w-full h-full object-cover rounded-full" alt="" /> : msg.sender?.username?.[0]?.toUpperCase()}
+                    {msg.sender?.profile?.avatar ? <img src={msg.sender.profile.avatar} className="w-full h-full object-cover rounded-full" alt={msg.sender?.username || 'User avatar'} /> : msg.sender?.username?.[0]?.toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-0.5">
@@ -190,7 +190,8 @@ export default function CommunityPage() {
                     className="flex-1 bg-transparent text-sm text-[var(--text)] placeholder-[var(--text-tertiary)] outline-none"
                   />
                   <button onClick={sendMessage} disabled={!input.trim()}
-                    className={cn('w-8 h-8 rounded-lg flex items-center justify-center transition-all', input.trim() ? 'bg-brand-500 text-white hover:bg-brand-600' : 'text-[var(--text-tertiary)]')}>
+                    className={cn('w-8 h-8 rounded-lg flex items-center justify-center transition-all', input.trim() ? 'bg-brand-500 text-white hover:bg-brand-600' : 'text-[var(--text-tertiary)]')}
+                    aria-label="إرسال الرسالة">
                     <Send size={15} />
                   </button>
                 </div>

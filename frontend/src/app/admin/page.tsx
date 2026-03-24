@@ -197,7 +197,7 @@ export default function AdminPage() {
 
       {/* Ban Modal */}
       {banUserId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
           <div className="card p-6 max-w-sm w-full">
             <h3 className="font-bold text-lg text-[var(--text)] mb-4">حظر المستخدم</h3>
             <textarea value={banReason} onChange={e => setBanReason(e.target.value)} placeholder="سبب الحظر..." className="input-field w-full resize-none mb-4" rows={3} />
