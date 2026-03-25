@@ -207,7 +207,9 @@ export function ProgressBar({ value, max = 100, size = 'md', color = 'bg-brand-5
         </div>
       )}
       <div className={cn('w-full bg-[var(--bg-secondary)] rounded-full overflow-hidden', size === 'sm' ? 'h-1.5' : 'h-2.5')}>
-        <div className={cn('h-full rounded-full transition-all duration-500', color)} style={{ width: `${pct}%` }} />
+        {/* Dynamic width using CSS variable - cannot be moved to CSS file */}
+        {/* eslint-disable-next-line @next/next/no-css-tagged-template-literal */}
+        <div className={cn('h-full rounded-full transition-all duration-500', color)} style={{ '--progress-width': `${pct}%` } as React.CSSProperties} />
       </div>
     </div>
   )

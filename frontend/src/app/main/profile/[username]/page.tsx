@@ -32,7 +32,9 @@ export default function ProfilePage() {
     <div className="max-w-4xl mx-auto p-4 sm:p-6">
       {/* Cover + Avatar */}
       <div className="card overflow-hidden mb-6">
-        <div className="h-36 bg-gradient-to-br from-brand-400 to-brand-600" style={profile.profile?.coverImage ? { backgroundImage: `url(${profile.profile.coverImage})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}} />
+        {/* Dynamic background image from user profile - using CSS variable */}
+        {/* eslint-disable-next-line @next/next/no-css-tagged-template-literal */}
+        <div className="h-36 bg-gradient-to-br from-brand-400 to-brand-600 profile-cover" style={profile.profile?.coverImage ? { '--cover-image': `url('${profile.profile.coverImage}')` } as React.CSSProperties : {}} />
         <div className="px-6 pb-6">
           <div className="flex items-end justify-between -mt-10 mb-4">
             <div className="w-20 h-20 rounded-full border-4 border-[var(--bg)] bg-brand-500 flex items-center justify-center text-white text-2xl font-bold shadow-lg overflow-hidden">

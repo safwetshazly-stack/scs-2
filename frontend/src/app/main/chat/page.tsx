@@ -98,7 +98,8 @@ export default function ChatPage() {
             <div className="mt-2 card p-1 shadow-card-hover">
               {userSearch.map((u: any) => (
                 <button key={u.id} onClick={() => startConv.mutate(u.id)}
-                  className="flex items-center gap-3 w-full px-3 py-2 rounded-xl hover:bg-[var(--bg-secondary)] transition-colors">
+                  className="flex items-center gap-3 w-full px-3 py-2 rounded-xl hover:bg-[var(--bg-secondary)] transition-colors"
+                  aria-label={`ابدأ محادثة مع ${u.username}`}>
                   <div className="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center text-brand-600 text-xs font-bold flex-shrink-0">
                     {u.username[0].toUpperCase()}
                   </div>
@@ -126,7 +127,8 @@ export default function ChatPage() {
               <button key={conv.id} onClick={() => setActiveConvId(conv.id)}
                 className={cn('flex items-center gap-3 w-full p-3 mx-1 rounded-xl transition-colors text-right',
                   activeConvId === conv.id ? 'bg-brand-50 dark:bg-brand-900/20' : 'hover:bg-[var(--bg-secondary)]'
-                )}>
+                )}
+                aria-label={`اختر محادثة مع ${other?.user?.username || 'مستخدم'}`}>
                 <div className="relative flex-shrink-0">
                   <div className="w-10 h-10 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center text-brand-600 font-bold text-sm">
                     {other?.user?.username?.[0]?.toUpperCase() || conv.name?.[0] || '?'}
@@ -201,7 +203,9 @@ export default function ChatPage() {
                   <div className="w-7 h-7 rounded-full bg-brand-100 flex items-center justify-center text-brand-600 text-xs font-bold flex-shrink-0" />
                   <div className="chat-bubble-in py-3 px-4">
                     <div className="flex items-center gap-1">
-                      {[0, 1, 2].map(i => <div key={i} className="w-1.5 h-1.5 bg-[var(--text-tertiary)] rounded-full animate-bounce" style={{ animationDelay: `${i * 150}ms` }} />)}
+                    {/* Dynamic animation delay for typing indicator - using CSS variable */}
+                    {/* eslint-disable-next-line @next/next/no-css-tagged-template-literal */}
+                      {[0, 1, 2].map(i => <div key={i} className="w-1.5 h-1.5 bg-[var(--text-tertiary)] rounded-full animate-bounce" style={{ '--bounce-delay': `${i * 150}ms` } as React.CSSProperties} />)}
                     </div>
                   </div>
                 </div>

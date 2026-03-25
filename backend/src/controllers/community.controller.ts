@@ -55,7 +55,7 @@ export const getCommunity = async (req: Request, res: Response, next: NextFuncti
 
     // Check membership
     let isMember = false
-    let memberRole = null
+    let memberRole: any = null
     if (req.user) {
       const membership = await prisma.communityMember.findFirst({
         where: { communityId: community.id, userId: req.user.id },

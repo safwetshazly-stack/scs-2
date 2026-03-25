@@ -157,7 +157,9 @@ export default function CourseDetailPage() {
                     <span className="text-brand-500 font-medium">{course.progress || 0}%</span>
                   </div>
                   <div className="h-2 bg-[var(--bg-secondary)] rounded-full overflow-hidden">
-                    <div className="h-full bg-brand-500 rounded-full" style={{ width: `${course.progress || 0}%` }} />
+                    {/* Dynamic width for course progress bar - using CSS variable */}
+                    {/* eslint-disable-next-line @next/next/no-css-tagged-template-literal */}
+                    <div className="h-full bg-brand-500 rounded-full" style={{ '--course-progress': `${course.progress || 0}%` } as React.CSSProperties} />
                   </div>
                 </div>
                 <button className="btn-primary w-full justify-center">

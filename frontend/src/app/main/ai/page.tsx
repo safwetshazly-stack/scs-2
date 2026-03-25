@@ -132,7 +132,7 @@ export default function AIPage() {
       <div className="w-64 flex-shrink-0 border-l border-[var(--border)] bg-[var(--bg)] flex flex-col hidden md:flex">
         <div className="p-3 border-b border-[var(--border)]">
           <button
-            onClick={() => createConversation.mutate()}
+            onClick={() => createConversation.mutate(undefined)}
             className="btn-primary w-full justify-center text-sm py-2.5"
           >
             <Plus size={16} />

@@ -29,13 +29,7 @@ export function HeroSection() {
         <div className="absolute top-0 right-0 w-96 h-96 rounded-full bg-purple-500/5 blur-3xl" />
         <div className="absolute bottom-0 left-0 w-96 h-96 rounded-full bg-emerald-500/5 blur-3xl" />
         {/* Grid pattern */}
-        <div
-          className="absolute inset-0 opacity-[0.02] dark:opacity-[0.04]"
-          style={{
-            backgroundImage: 'radial-gradient(circle, #1A56DB 1px, transparent 1px)',
-            backgroundSize: '32px 32px',
-          }}
-        />
+        <div className="absolute inset-0 opacity-[0.02] dark:opacity-[0.04] hero-grid-pattern" />
       </div>
 
       <div className="page-container py-20 text-center">

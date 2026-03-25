@@ -277,6 +277,31 @@ body {
   @apply fixed inset-0 z-[100] flex items-center justify-center bg-[var(--bg)];
 }
 
+/* ─── DYNAMIC STYLES ────────────────────────────────────────*/
+.hero-grid-pattern {
+  background-image: radial-gradient(circle, #1A56DB 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+.profile-cover {
+  background-image: var(--cover-image, linear-gradient(to right, rgb(var(--brand-400)), rgb(var(--brand-600))));
+  background-size: cover;
+  background-position: center;
+}
+
+/* Progress bars and animations using CSS variables */
+[style*='--progress-width'] {
+  width: var(--progress-width);
+}
+
+[style*='--course-progress'] {
+  width: var(--course-progress);
+}
+
+[style*='--bounce-delay'] {
+  animation-delay: var(--bounce-delay);
+}
+
 /* ─── RESPONSIVE ─────────────────────────────────────────── */
 @media (max-width: 768px) {
   :root {

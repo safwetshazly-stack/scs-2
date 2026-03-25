@@ -1,4 +1,4 @@
-import { UserRole } from '../../../shared/types'
+export type UserRole = 'STUDENT' | 'TEACHER' | 'ADMIN' | string
 
 declare global {
   namespace Express {

@@ -9,6 +9,7 @@ import rateLimit from 'express-rate-limit'
 import hpp from 'hpp'
 import { PrismaClient } from '@prisma/client'
 import { createClient } from 'redis'
+import { createAdapter } from '@socket.io/redis-adapter'
 
 import { authRoutes } from './routes/auth.routes'
 import { userRoutes } from './routes/user.routes'
@@ -35,6 +36,8 @@ export const prisma = new PrismaClient({
 })
 
 export const redis = createClient({ url: env.REDIS_URL })
+export const pubClient = redis.duplicate()
+export const subClient = redis.duplicate()
 
 const app: Application = express()
 const httpServer = createServer(app)
@@ -196,7 +199,11 @@ async function bootstrap() {
     logger.info('✅ Database connected')
 
     await redis.connect()
+    await pubClient.connect()
+    await subClient.connect()
     logger.info('✅ Redis connected')
+
+    io.adapter(createAdapter(pubClient, subClient))
 
     httpServer.listen(env.PORT, () => {
       logger.info(`🚀 SCS Platform running on port ${env.PORT} [${env.NODE_ENV}]`)
