@@ -23,6 +23,10 @@ import { notificationRoutes } from './routes/notification.routes'
 import { adminRoutes } from './routes/admin.routes'
 import { uploadRoutes } from './routes/upload.routes'
 import { searchRoutes } from './routes/search.routes'
+import { webhookRoutes } from './routes/webhook.routes'
+import { platformRoutes } from './routes/platform.routes'
+
+import { startVideoWorker } from './workers/video.worker'
 
 import { socketHandler } from './utils/socket'
 import { errorHandler } from './middlewares/error.middleware'
@@ -180,6 +184,8 @@ app.use('/api/notifications', notificationRoutes)
 app.use('/api/admin',         adminRoutes)
 app.use('/api/upload',        uploadRoutes)
 app.use('/api/search',        searchRoutes)
+app.use('/api/webhooks',      webhookRoutes)
+app.use('/api/platforms',     platformRoutes)
 
 // ─── 404 HANDLER ──────────────────────────────────────────
 app.use((_req: Request, res: Response) => {
@@ -204,6 +210,9 @@ async function bootstrap() {
     logger.info('✅ Redis connected')
 
     io.adapter(createAdapter(pubClient, subClient))
+
+    // Start background workers
+    startVideoWorker()
 
     httpServer.listen(env.PORT, () => {
       logger.info(`🚀 SCS Platform running on port ${env.PORT} [${env.NODE_ENV}]`)

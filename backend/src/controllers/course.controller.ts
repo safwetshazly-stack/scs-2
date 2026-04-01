@@ -6,7 +6,7 @@ import slugify from '../utils/slugify'
 // ─── GET ALL ─────────────────────────────────────────────
 export const getCourses = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { page = '1', limit = '20', search, level, language, minPrice, maxPrice, tag, sort = 'popular' } = req.query
+    const { page = '1', limit = '20', search, level, language, minPrice, maxPrice, tag, sort = 'popular', platformId } = req.query
     const skip = (parseInt(page as string) - 1) * parseInt(limit as string)
 
     const where: any = { status: 'PUBLISHED' }
@@ -20,6 +20,7 @@ export const getCourses = async (req: Request, res: Response, next: NextFunction
     if (tag) where.tags = { has: tag }
     if (minPrice) where.price = { ...where.price, gte: parseFloat(minPrice as string) }
     if (maxPrice) where.price = { ...where.price, lte: parseFloat(maxPrice as string) }
+    if (platformId) where.platformId = platformId
 
     const orderBy: any = {
       popular: { studentsCount: 'desc' },
@@ -105,15 +106,23 @@ export const getCourse = async (req: Request, res: Response, next: NextFunction)
 // ─── CREATE ───────────────────────────────────────────────
 export const createCourse = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { title, description, price = 0, level = 'BEGINNER', language = 'AR', tags = [], thumbnail, previewVideo } = req.body
+    const { title, description, price = 0, level = 'BEGINNER', language = 'AR', tags = [], thumbnail, previewVideo, platformId } = req.body
     const instructorId = req.user!.id
 
     const baseSlug = slugify(title)
     const existing = await prisma.course.findUnique({ where: { slug: baseSlug } })
     const slug = existing ? `${baseSlug}-${Date.now()}` : baseSlug
 
+    // If platformId is provided, optionally verify the creator owns it
+    if (platformId && req.user!.role !== 'ADMIN') {
+      const platform = await prisma.platform.findUnique({ where: { id: platformId } })
+      if (!platform || platform.ownerId !== instructorId) {
+        throw new AppError('Unauthorized to publish to this Platform', 403)
+      }
+    }
+
     const course = await prisma.course.create({
-      data: { title, slug, description, price: +price, level, language, tags, thumbnail, previewVideo, instructorId, status: 'DRAFT' },
+      data: { title, slug, description, price: +price, level, language, tags, thumbnail, previewVideo, instructorId, platformId, status: 'DRAFT' },
     })
     res.status(201).json(course)
   } catch (e) { next(e) }

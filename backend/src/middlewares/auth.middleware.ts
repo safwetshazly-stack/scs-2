@@ -7,7 +7,7 @@ import { AppError } from '../utils/errors'
 declare global {
   namespace Express {
     interface Request {
-      user?: { id: string; role: string }
+      user?: { id: string; role: string; subscriptionTier: string }
     }
   }
 }
@@ -27,30 +27,30 @@ export const authenticate = async (req: Request, _res: Response, next: NextFunct
     const isBlacklisted = await redis.get(`blacklist:${token}`)
     if (isBlacklisted) throw new AppError('Token has been invalidated', 401)
 
-    const payload = jwt.verify(token, env.JWT_ACCESS_SECRET) as { userId: string; role: string; iat: number }
+    const payload = jwt.verify(token, env.JWT_ACCESS_SECRET) as { userId: string; role: string; subscriptionTier: string; iat: number }
 
     // Check cached user first
     const cached = await redis.get(`user:${payload.userId}`)
     if (cached) {
       const userData = JSON.parse(cached)
-      req.user = { id: userData.id, role: userData.role }
+      req.user = { id: userData.id, role: userData.role, subscriptionTier: userData.subscriptionTier }
       return next()
     }
 
     // Fallback to DB
     const user = await prisma.user.findUnique({
       where: { id: payload.userId },
-      select: { id: true, role: true, isBanned: true, isActive: true },
+      select: { id: true, role: true, subscriptionTier: true, isBanned: true, isActive: true },
     })
 
     if (!user) throw new AppError('User not found', 401)
     if (user.isBanned) throw new AppError('Account banned', 403)
     if (!user.isActive) throw new AppError('Account deactivated', 403)
 
-    req.user = { id: user.id, role: user.role }
+    req.user = { id: user.id, role: user.role, subscriptionTier: user.subscriptionTier }
 
     // Refresh cache
-    await redis.setEx(`user:${user.id}`, 3600, JSON.stringify({ id: user.id, role: user.role }))
+    await redis.setEx(`user:${user.id}`, 3600, JSON.stringify({ id: user.id, role: user.role, subscriptionTier: user.subscriptionTier }))
 
     next()
   } catch (error) {
@@ -93,7 +93,19 @@ export const requireRole = (...roles: string[]) => {
 }
 
 export const requireAdmin = requireRole('ADMIN')
-export const requireInstructor = requireRole('INSTRUCTOR', 'ADMIN')
+export const requireTeacher = requireRole('TEACHER', 'ADMIN')
+export const requireCreator = requireRole('CREATOR', 'ADMIN')
+
+export const requireSubscription = (...tiers: string[]) => {
+  return (req: Request, _res: Response, next: NextFunction) => {
+    if (!req.user) throw new AppError('Authentication required', 401)
+    if (req.user.role === 'ADMIN') return next()
+    if (!tiers.includes(req.user.subscriptionTier)) {
+      throw new AppError('Subscription required for this feature', 403)
+    }
+    next()
+  }
+}
 
 // ─── CSRF PROTECTION ──────────────────────────────────────
 export const csrfProtection = (req: Request, res: Response, next: NextFunction) => {

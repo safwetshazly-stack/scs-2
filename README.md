@@ -1,147 +1,157 @@
-# SCS Platform — الثورة في التعليم الاجتماعي 🚀
+# Shazly Community for Students (SCS) — Enterprise Architecture & Operations Handbook
 
-> منصة تعليمية اجتماعية تجمع الكورسات، المجتمعات، الدردشة الفورية، والذكاء الاصطناعي في بيئة تفاعلية ومرنة، مصممة لاستيعاب **مليون مستخدم في نفس الوقت** بفضل هيكلتها المتقدمة.
+Welcome to the definitive engineering documentation for the **SCS Platform**. This document is designed for the CTO, Lead Architects, and Senior DevOps Engineers responsible for scaling this ecosystem to **1,000,000+ concurrent active users**.
 
----
-
-## 🌟 جدول المحتويات
-1. [نظرة عامة](#-نظرة-عامة)
-2. [آلية عمل المشروع Flow](#-آلية-عمل-المشروع-flow)
-3. [خرائط المشروع (Architecture & Database)](#-خرائط-المشروع-architecture--database)
-4. [تجربة المستخدم UI/UX](#-تجربة-المستخدم-uiux)
-5. [الأمان والتوسع (Scalability & Security)](#-الأمان-والتوسع-scalability--security)
-6. [المشاكل المحلولة والمستقبلية (Troubleshooting)](#-المشاكل-المحلولة-والمستقبلية-troubleshooting)
-7. [التشغيل السريع](#-التشغيل-السريع)
+SCS merges advanced video delivery (YouTube-like), nested multi-tenant learning management (Udemy-like), secure and ephemeral real-time chat (Telegram-like), and offline-first productivity (Notion-like) into a singular, highly resilient Event-Driven Monolith.
 
 ---
 
-## 👁️‍🗨️ نظرة عامة
-تم بناء SCS لتكون المزيج المتكامل الذي يغني المستخدم عن التنقل بين المنصات المختلفة:
-- **نظام الكورسات (Udemy-like):** شراء وتعلم الكورسات مع تتبع التقدم.
-- **مجتمعات وتواصل (Discord-like):** قنوات نصية وصوتية للمجتمعات.
-- **ذكاء اصطناعي (ChatGPT-like):** مساعد ذكي مدمج لفهم الأكواد وتلخيص النصوص.
-- **تجربة مستخدم احترافية:** تتميز بانتقالات 3D ناعمة، تأثيرات Tracking، وشاشات تحميل صممت خصيصاً لهوية المشروع.
+## 🏗️ 1. Core Construction Methodology
+
+SCS is built on the **Modular, Event-Driven, Distributed Monolith** pattern.
+Unlike traditional microservices which introduce extreme network latency and complex orchestration overhead, SCS retains a unified codebase while enforcing strict boundary contexts.
+
+- **Statelessness:** The Node.js application layer holds exactly zero state. All session, socket presence, and rate-limiting data is instantly offloaded to Redis.
+- **Event-Driven IO:** Heavy tasks (Video Encoding, Massive DB aggregations, Email routing) are strictly pushed to BullMQ/RabbitMQ to prevent main-thread event-loop blocking.
+- **Data Locality:** High-frequency relational data lives in PostgreSQL, structured via Prisma. Unstructured binary blobs (Videos, Resumes) live in Cloudflare R2 Edge networks.
+- **Client Resilience:** The Next.js frontend employs extensive Service Workers (`sw.js`) utilizing `Stale-While-Revalidate` caching algorithms, allowing the application to function seamlessly during internet outages.
 
 ---
 
-## ⚙️ آلية عمل المشروع (Flow)
+## 🗺️ 2. Operating & Work Maps
 
-يعمل المشروع وفق معمارية تعتمد على فصل الواجهة (Frontend) عن الخادم الدقيق (Backend) والاعتماد على الـ WebSockets للتواصل اللحظي.
+### 2.1 The Video Delivery Pipeline (Zero-Bottleneck Architecture)
+To ensure the backend does not crash when 50,000 instructors upload videos simultaneously, we bypass the Node.js server for data transfer entirely.
 
-1. **دخول المستخدم (Authentication):** عند تسجيل الدخول، يتم إصدار JWT Access Token & Refresh Token، وتخزينهما بأمان (Token Rotation).
-2. **الاتصال اللحظي (WebSockets):** يفتح الـ Frontend قناة اتصال مع السيرفر عبر `Socket.io`. بفضل الـ **Redis Adapter**، يستطيع مئات الآلاف من المستخدمين المتصلين بسيرفرات مختلفة تلقي نفس الرسائل والإشعارات في أجزاء من الثانية.
-3. **تصفح الكورسات و الـ 3D UI:** الواجهة مبنية بـ `Next.js 14` و `Framer Motion` لتقديم تأثيرات (Transitions) مذهلة وشاشات تحميل (Custom 3D Loading) دون التأثير على سرعة الأداء.
-4. **الاستعلام عن البيانات (Database):** للعمليات الثقيلة والمعقدة يتم استدعاء قاعدة البيانات `PostgreSQL` عبر `Prisma ORM`.
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant API as Node.js API
+    participant R2 as Cloudflare R2 (Raw Bucket)
+    participant W as FFmpeg Worker Node
+    participant DB as PostgreSQL
 
----
+    C->>API: Request Upload (auth check)
+    API-->>C: Returns Signed AWS S3 URL
+    C->>R2: Direct Multipart Upload (Bypasses API)
+    R2-->>API: S3 Event / Webhook (Upload Complete)
+    API->>W: Push Job to BullMQ (Redis)
+    W->>W: Transcode to HLS (1080p, 720p) chunking .m3u8
+    W->>R2: Upload HLS Segments to Public/Protected Bucket
+    W->>DB: Webhook: Update Video Status to "READY"
+```
 
-## 🗺️ خرائط المشروع (Architecture & Database)
-
-### 1️⃣ هيكلية النظام (System Architecture)
-هذه الخريطة توضح كيف يتوزع الحمل (Load Balancing) بين السيرفرات لاستيعاب مليون مستخدم.
+### 2.2 The Distributed WebSocket Chat Engine
+A standard Node.js Socket.io server caps at roughly 65,000 connections due to OS Port exhaustion. SCS utilizes the Redis Adapter pattern to infinitely scale horizontally.
 
 ```mermaid
 graph TD
-    User([مستخدمي المنصة]) -->|HTTPS / WSS| CDN[Cloudflare / CDN]
-    CDN --> LB[Load Balancer / Nginx]
-    
-    LB -->|توزيع الأحمال| Node1((Backend Server 1))
-    LB -->|توزيع الأحمال| Node2((Backend Server 2))
-    LB -->|توزيع الأحمال| NodeN((Backend Server N))
-    
-    Node1 <==>|مجاميع ومزامنة Sockets| Redis[(Redis Cluster)]
-    Node2 <==>|Pub/Sub| Redis
-    NodeN <==>|Cache & Sessions| Redis
-    
-    Node1 --> PgBouncer
-    Node2 --> PgBouncer
-    NodeN --> PgBouncer
-    
-    PgBouncer{PgBouncer Connection Pool} -->|إدارة الاتصالات| PrimaryDB[(PostgreSQL Primary DB)]
-    PrimaryDB -->|نسخ احتياطي لحظي| ReplicaDB[(PostgreSQL Replica DB)]
-    
-    Node1 -.->|الذكاء الاصطناعي| OpenAI[OpenAI / DeepSeek API]
-    Node1 -.->|تخزين الملفات| S3[AWS S3 Bucket]
+    A[User A] -->|Connects| LB(Nginx Load Balancer)
+    B[User B] -->|Connects| LB
+    LB --> Node1[Node Container 1]
+    LB --> Node2[Node Container 2]
+    Node1 -->|Publish Event| Redis[(Redis Pub/Sub Cluster)]
+    Node2 -->|Subscribe Event| Redis
+    Node1 --> DB[(PostgreSQL)]
+    Node2 --> DB
 ```
 
-### 2️⃣ مبنى قاعدة البيانات (Database Schema Overview)
-بناء مصغر لأهم الجداول وعلاقاتها في المنصة:
+---
+
+## 🗄️ 3. Database Entity-Relationship (ER) Map
+
+The database architecture is designed to handle **Nested Multi-Tenancy**. A "Platform" belongs to an ecosystem, and "Courses" belong to that specific nested Platform.
 
 ```mermaid
 erDiagram
-    USER ||--o{ COMMUNITY_MEMBER : joins
-    USER ||--o{ MESSAGE : sends
-    USER ||--o{ COURSE_ENROLLMENT : enrolls
-    
-    COMMUNITY ||--o{ COMMUNITY_MEMBER : has
-    COMMUNITY ||--o{ CHANNEL : contains
-    CHANNEL ||--o{ CHANNEL_MESSAGE : contains
-    
-    COURSE ||--o{ MODULE : contains
-    MODULE ||--o{ LESSON : contains
-    LESSON ||--o{ PROGRESS : tracks
+    USER {
+        uuid id PK
+        string email
+        enum role "STUDENT | TEACHER | ADMIN"
+        float walletBalance
+    }
+    PLATFORM {
+        uuid id PK
+        uuid ownerId FK
+        string name
+        float commissionRate
+    }
+    COURSE {
+        uuid id PK
+        uuid platformId FK
+        uuid creatorId FK
+        float price
+    }
+    VIDEO {
+        uuid id PK
+        uuid courseId FK
+        string hlsUrl
+        enum status "PROCESSING | READY"
+    }
+    MESSAGE {
+        uuid id PK
+        uuid senderId FK
+        uuid conversationId
+        boolean isEphemeral
+        boolean screenshotDetected
+    }
+
+    USER ||--o{ PLATFORM : "owns"
+    PLATFORM ||--o{ COURSE : "contains"
+    USER ||--o{ COURSE : "purchases/creates"
+    COURSE ||--o{ VIDEO : "contains"
+    USER ||--o{ MESSAGE : "sends"
 ```
 
 ---
 
-## 🎨 تجربة المستخدم (UI/UX)
-تم رفع مستوى احترافية الواجهة من خلال:
-- **Page Transitions:** انتقال وتلاشي سلس (Blur & Slide) أثناء التنقل بين الصفحات.
-- **3D Loading Spinner:** استبدال شاشات التحميل التقليدية بمجسم ثلاثي الأبعاد يدور ويسطع (Glow Effects) ليطابق هوية المشروع (SCS).
-- **Smooth Animations:** تم استخدام وتضمين `Framer Motion` في الأزرار والبطاقات (Tilt and Hover Tracking) مما يعطي شعوراً بالحياة للتطبيق.
+## 🛡️ 4. Future Vulnerabilities & Solutions
+
+As the platform scales to its full potential, standard web architectures will break. Here is the threat and failure intelligence matrix, and how SCS is architected to survive them.
+
+### 🔴 1. The PostgreSQL "Connection Exhaustion" (Too many clients)
+**The Threat:** Every new Node.js server instance or serverless function opens a pool of connections to Postgres. At scale (e.g., 500 API instances), PostgreSQL will crash instantly with `FATAL: sorry, too many clients already`.
+**The Solution:** 
+We must route **all** traffic through `PgBouncer` running in `Transaction Pooling Mode`. PgBouncer holds a persistent pool to PostgreSQL and multiplexes thousands of incoming lightweight client connections onto a small number of physical DB connections.
+
+### 🔴 2. The Cache Stampede (Thundering Herd Problem)
+**The Threat:** If a highly popular course page completes its Redis TTL and expires, 10,000 concurrent users will immediately hit the database to re-fetch the course data simultaneously, causing a CPU spike and DB crash.
+**The Solution:** 
+Implement "Promise Debouncing" and "Stale-While-Revalidate" at the cache layer. If 10,000 users request a missing cache key, the Node server groups the requests, sends exactly ONE query to PostgreSQL, and returns the result to all 10,000 awaiting promises.
+
+### 🔴 3. WebSocket "Split-Brain" Memory Leaks
+**The Threat:** If a Socket.io container crashes, clients immediately reconnect to a new container. If the old container didn't cleanly sweep its presence data from Redis, ghost users will appear online forever.
+**The Solution:**
+Redis Keys tracking user presence MUST utilize strict TTLs (Time-To-Live), utilizing a heartbeat ping from the client every 30 seconds. If a container dies, the Redis TTL naturally evicts the ghost user after 45 seconds without requiring cleanup code.
+
+### 🔴 4. Financial Asynchrony (Stripe Webhook Misfires)
+**The Threat:** If a user purchases a course, but the database crashes *right before* we add the course to their account, the user is charged but receives nothing.
+**The Solution:**
+Strict ACID `prisma.$transaction`. Within the Stripe Webhook handler, the debit operation, the Creator Revenue Split percentage distribution, and the Course Ownership assignment are bundled in a single block. If *any* step fails, the entire transaction rolls back cleanly.
+
+### 🔴 5. Malicious Video Piracy (Downloading HLS Streams)
+**The Threat:** Users extracting the physical `.m3u8` master playlist and downloading the raw video chunks without authorization.
+**The Solution:**
+- **Signed URLs:** The Cloudflare URL expires globally after 4 hours.
+- **DRM Playback:** The `VideoPlayer.tsx` implements right-click native blocking.
+- **Screenshot Auditing:** OS-level screenshot events are trapped by the browser and emit a permanent flag to the database via WebSocket, ensuring bad actors are algorithmically banned.
 
 ---
 
-## 🔒 الأمان والتوسع (Scalability & Security)
+## 🚀 5. Deployment Commands
 
-### التوسع لمليون مستخدم
-1. **الـ Stateless Server:** السيرفر لا يحفظ حالة الـ Sockets بداخله، بل تم دمج `@socket.io/redis-adapter` مما يسمح بتشغيل السيرفر على مئات الخوادم (Containers) دون خسارة الاتصال بين المستخدمين.
-2. **Connection Pooling:** يجب تشغيل `PgBouncer` أمام السيرفرات لضمان عدم وصول اتصالات `Prisma` الحد الأقصى مع كثرة الطلبات.
-
-### الأمان 
-- **Rate Limiting & Helmet & HPP:** طبقات حماية للتصدي لهجمات الـ DDoS والـ XSS وغيرها.
-- **JWT & Token Blacklisting:** أمان متقدم مع إمكانية إنهاء الجلسات المفتوحة للمستخدم من أي جهاز فوراً عبر Redis.
-
----
-
-## 🛠️ المشاكل المحلولة والمستقبلية (Troubleshooting)
-
-### ✅ مشاكل تم حلها 
-1. **مشكلة فصل الاتصال (Socket Disconnects) عند زيادة الحمل:**
-   - *الحل:* تم دمج `Redis Adapter` لتوزيع الغرف (Rooms) والرسائل عبر عدة خوادم مما ألغى نقطة الفشل الأحادية (Single Point of Failure).
-2. **الواجهة جامدة والتنقل البطيء (Boring UI):**
-   - *الحل:* تم بناء قالب `template.tsx` و `loading.tsx` مخصصين يدمجون `Framer Motion` لإضافة تأثيرات بصرية جذابة، متطورة، وتحافظ على الخفة.
-
-### ⚠️ مشاكل قد تواجهك مستقبلاً وكيفية حلها
-1. **مشكلة التكدس في قاعدة البيانات (Max Connections Reached):**
-   - *السيناريو:* مع وصول عدد المتصلين لمليون شخص، قد تمتنع قاعدة بيانات Postgres عن استقبال اتصالات جديدة (`Too many clients`).
-   - *كيفية التعامل معها:* تم تجهيز المشروع للعمل مع `PgBouncer`. تأكد من تفعيله في إعدادات الخادم الفعلي وإضافة `?pgbouncer=true` لرابط الـ `DATABASE_URL` في إعدادات Prisma.
-   
-2. **استهلاك الذاكرة العالي في Node.js (OOM - Out of Memory):**
-   - *السيناريو:* مع تحميل ملفات ضخمة أو معالجة صور كثيرة في الـ Backend.
-   - *كيفية التعامل معها:* قم بزيادة الخوادم (Horizontal Scaling) بدلاً من ترقية الخادم الرأسي، وتأكد من أن أحجام الرفع (Upload Limits) عبر `Nginx` محددة بصرامة (10MB مجهزة حالياً).
-   
-3. **تكلفة التخزين السحابي (S3 Storage Costs):**
-   - *السيناريو:* المستخدمون يرفعون آلاف الملفات اليومية والمشاريع ومقاطع الفيديو، مما يستهلك المساحة سريعا.
-   - *كيفية التعامل معها:* تفعيل `AWS S3 Lifecycle Rules` لمسح الملفات القديمة التي لا تخص الكورسات الأساسية بشكل تلقائي، أو استخدام `Cloudflare R2` لغياب رسوم الـ Egress.
-
----
-
-## 🚀 التشغيل السريع
-لبدء المشروع محلياً باستخدام `Docker`:
+The infrastructure is orchestrated via Docker multi-stage builds. Ensure `CDN_URL`, `DATABASE_URL`, `STRIPE_SECRET`, and `R2_ENDPOINT` are populated securely in the Vault/Environment.
 
 ```bash
-# 1. إعداد المتغيرات البيئية
-cp .env.example .env
+# Compile TypeScript to pure JS for max performance
+npm run build 
 
-# 2. بناء وتشغيل المشروع متضمناً (Frontend, Backend, Redis, Postgres)
-docker compose -f docker-compose.dev.yml up -d
+# Start primary API instance (Cluster mode recommended in prod)
+PORT=8080 node dist/server.js
 
-# 3. إعداد وتنفيذ جداول قاعدة البيانات (تلقائياً)
-docker compose -f docker-compose.dev.yml exec backend npx prisma migrate dev --name init
-
-# 4. تغذية القاعدة ببيانات تجريبية (Admin & Courses)
-docker compose -f docker-compose.dev.yml exec backend npm run prisma:seed
+# Start Video Background Worker (On distinct compute nodes)
+WORKER_MODE=true node dist/workers/video.js
 ```
 
-> **بمجرد التشغيل، ستستمتع بتجربة الـ UI/UX المحدثة مع السرعة الفائقة 🪄**
+### End of Document
+*Designed for resilience, built for absolute scale.*

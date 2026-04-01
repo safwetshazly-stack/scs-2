@@ -77,6 +77,7 @@ export function socketHandler(io: Server) {
       content: string
       type?: string
       replyToId?: string
+      isEphemeral?: boolean
     }) => {
       try {
         if (!await checkSocketRateLimit(userId, 'message', 30, 10)) {
@@ -84,7 +85,7 @@ export function socketHandler(io: Server) {
           return
         }
 
-        const { conversationId, content, type = 'TEXT', replyToId } = data
+        const { conversationId, content, type = 'TEXT', replyToId, isEphemeral = false } = data
 
         // Verify membership
         const member = await prisma.conversationMember.findFirst({
@@ -99,6 +100,8 @@ export function socketHandler(io: Server) {
         const sanitized = content.trim().slice(0, 5000)
         if (!sanitized) return
 
+        const expiresAt = isEphemeral ? new Date(Date.now() + 24 * 60 * 60 * 1000) : null // 24hr expiry
+
         const message = await prisma.message.create({
           data: {
             conversationId,
@@ -106,6 +109,8 @@ export function socketHandler(io: Server) {
             content: sanitized,
             type: type as any,
             replyToId,
+            isEphemeral,
+            expiresAt
           },
           include: {
             sender: {
@@ -127,6 +132,33 @@ export function socketHandler(io: Server) {
           data: { updatedAt: new Date() },
         })
 
+        // Webhook Mentions Tracker Logic
+        const mentions = sanitized.match(/@([a-zA-Z0-9_]+)/g)
+        const mentionedUserIds = new Set<string>()
+
+        if (mentions) {
+          const usernames = mentions.map(m => m.substring(1))
+          const mentionedUsers = await prisma.user.findMany({
+            where: { username: { in: usernames } },
+            select: { id: true, username: true }
+          })
+          
+          for (const mu of mentionedUsers) {
+            if (mu.id !== userId) {
+              mentionedUserIds.add(mu.id)
+              await prisma.notification.create({
+                data: {
+                  userId: mu.id,
+                  type: 'MESSAGE', // Map mapped to enum type in Database
+                  title: 'New Mention',
+                  body: `${socket.username} mentioned you: ${sanitized.slice(0, 40)}...`,
+                  data: { conversationId },
+                }
+              })
+            }
+          }
+        }
+
         // Notify offline members
         const members = await prisma.conversationMember.findMany({
           where: { conversationId, userId: { not: userId } },
@@ -134,8 +166,10 @@ export function socketHandler(io: Server) {
         })
 
         for (const m of members) {
+          if (mentionedUserIds.has(m.userId)) continue // Skip if already notified via mention
+          
           const isOnline = await redis.get(`online:${m.userId}`)
-          if (!isOnline) {
+          if (!isOnline && !isEphemeral) {
             await prisma.notification.create({
               data: {
                 userId: m.userId,
@@ -150,6 +184,23 @@ export function socketHandler(io: Server) {
       } catch (err) {
         logger.error('message:send error', err)
         socket.emit('error', { message: 'Failed to send message' })
+      }
+    })
+
+    // ─── SCREENSHOT DETECTION ──────────────────────────
+    socket.on('chat:screenshot', async (data: { conversationId: string, messageId?: string }) => {
+      // Notify the room that a screenshot was taken
+      socket.to(`conv:${data.conversationId}`).emit('chat:screenshot_alert', {
+        userId, username: socket.username, conversationId: data.conversationId, messageId: data.messageId
+      })
+      
+      if (data.messageId) {
+        try {
+          await prisma.message.update({
+            where: { id: data.messageId },
+            data: { screenshotTaken: true }
+          })
+        } catch (e) { logger.error('Failed to update screenshot flag:', e) }
       }
     })
 

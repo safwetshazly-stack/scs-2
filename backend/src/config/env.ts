@@ -42,6 +42,9 @@ export const env = {
   AWS_SECRET_KEY: optional('AWS_SECRET_KEY', ''),
   AWS_REGION: optional('AWS_REGION', 'us-east-1'),
   AWS_BUCKET: optional('AWS_BUCKET', 'scs-platform'),
+  CDN_URL: optional('CDN_URL', 'https://cdn.scs-platform.com'),
+  R2_ENDPOINT: optional('R2_ENDPOINT', ''),
+  WEBHOOK_SECRET: optional('WEBHOOK_SECRET', ''),
 
   SMTP_HOST: optional('SMTP_HOST'),
   SMTP_PORT: parseInt(optional('SMTP_PORT', '587')),

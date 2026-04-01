@@ -77,12 +77,34 @@ export const stripeWebhook = async (req: Request, res: Response, next: NextFunct
           if (course) {
             await tx.courseEnrollment.create({ data: { courseId: itemId, userId } })
             await tx.course.update({ where: { id: itemId }, data: { studentsCount: { increment: 1 } } })
+
+            // Revenue Split Logic: 20% SCS App, 15% Platform (if exists), Remainder to Creator
+            const amountPaid = session.amount_total ? session.amount_total / 100 : course.price
+            let platformCut = 0
+            if (course.platformId) {
+              const platform = await tx.platform.findUnique({ where: { id: course.platformId } })
+              if (platform) {
+                platformCut = amountPaid * (platform.commissionRate / 100)
+                await tx.user.update({ where: { id: platform.ownerId }, data: { walletBalance: { increment: platformCut } } })
+              }
+            }
+            const appCut = amountPaid * 0.20
+            const creatorCut = amountPaid - appCut - platformCut
+            
+            await tx.user.update({ where: { id: course.instructorId }, data: { walletBalance: { increment: creatorCut } } })
           }
         } else if (itemType === 'book') {
           const book = await tx.book.findUnique({ where: { id: itemId } })
           if (book) {
             await tx.bookPurchase.create({ data: { bookId: itemId, userId, pricePaid: book.price } })
             await tx.book.update({ where: { id: itemId }, data: { salesCount: { increment: 1 } } })
+
+            // Revenue Split Logic: 30% SCS App, 70% Author
+            const amountPaid = session.amount_total ? session.amount_total / 100 : book.price
+            const appCut = amountPaid * 0.30
+            const authorCut = amountPaid - appCut
+            
+            await tx.user.update({ where: { id: book.authorId }, data: { walletBalance: { increment: authorCut } } })
           }
         } else if (itemType === 'subscription') {
           const plan = await tx.subscriptionPlan.findUnique({ where: { id: itemId } })
@@ -95,10 +117,18 @@ export const stripeWebhook = async (req: Request, res: Response, next: NextFunct
                 currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
               },
             })
-            await tx.aiUsage.update({
-              where: { userId },
-              data: { resetAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) },
-            })
+            // Reset AI Usage limits for new billing period
+            const aiUsageExists = await tx.aIUsage.findUnique({ where: { userId } })
+            if (aiUsageExists) {
+              await tx.aIUsage.update({
+                where: { userId },
+                data: { requestsCount: 0, resetAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) },
+              })
+            } else {
+              await tx.aIUsage.create({
+                data: { userId, requestsCount: 0, resetAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) }
+              })
+            }
           }
         }
 
