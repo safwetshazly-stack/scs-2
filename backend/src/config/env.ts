@@ -37,6 +37,10 @@ export const env = {
   STRIPE_SECRET_KEY: optional('STRIPE_SECRET_KEY', ''),
   STRIPE_WEBHOOK_SECRET: optional('STRIPE_WEBHOOK_SECRET', ''),
 
+  // Video Meetings - Optional, required for video conferencing features
+  LIVEKIT_API_KEY: optional('LIVEKIT_API_KEY', ''),
+  LIVEKIT_API_SECRET: optional('LIVEKIT_API_SECRET', ''),
+
   // File Storage - Required for file uploads
   AWS_ACCESS_KEY: optional('AWS_ACCESS_KEY', ''),
   AWS_SECRET_KEY: optional('AWS_SECRET_KEY', ''),

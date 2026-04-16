@@ -73,8 +73,8 @@ export const optionalAuth = async (req: Request, _res: Response, next: NextFunct
     const token = authHeader.split(' ')[1]
     if (!token) return next()
 
-    const payload = jwt.verify(token, env.JWT_ACCESS_SECRET) as { userId: string; role: string }
-    req.user = { id: payload.userId, role: payload.role }
+    const payload = jwt.verify(token, env.JWT_ACCESS_SECRET) as { userId: string; role: string; subscriptionTier: string }
+    req.user = { id: payload.userId, role: payload.role, subscriptionTier: payload.subscriptionTier }
     next()
   } catch {
     next()
@@ -95,6 +95,7 @@ export const requireRole = (...roles: string[]) => {
 export const requireAdmin = requireRole('ADMIN')
 export const requireTeacher = requireRole('TEACHER', 'ADMIN')
 export const requireCreator = requireRole('CREATOR', 'ADMIN')
+export const requireInstructor = requireRole('TEACHER', 'ADMIN')
 
 export const requireSubscription = (...tiers: string[]) => {
   return (req: Request, _res: Response, next: NextFunction) => {

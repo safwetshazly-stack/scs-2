@@ -1,17 +1,20 @@
-import { prisma, redis } from '../server'
+import { PrismaClient } from '@prisma/client'
+import { RedisClientType } from 'redis'
 
-export const searchService = {
+export class SearchService {
+  constructor(private prisma: PrismaClient, private redis: RedisClientType) {}
+
   // Global search across courses, communities, users, books
-  globalSearch: async (query: string, userId?: string) => {
+  async globalSearch(query: string, userId?: string) {
     if (!query || query.trim().length < 2) return { courses: [], communities: [], users: [], books: [] }
 
     const q = query.trim()
     const cacheKey = `search:${q.toLowerCase()}`
-    const cached = await redis.get(cacheKey)
+    const cached = await this.redis.get(cacheKey)
     if (cached) return JSON.parse(cached)
 
     const [courses, communities, users, books] = await Promise.all([
-      prisma.course.findMany({
+      this.prisma.course.findMany({
         where: {
           status: 'PUBLISHED',
           OR: [
@@ -24,7 +27,7 @@ export const searchService = {
         select: { id: true, title: true, slug: true, thumbnail: true, price: true, rating: true, instructor: { select: { username: true } } },
       }),
 
-      prisma.community.findMany({
+      this.prisma.community.findMany({
         where: {
           isPrivate: false,
           OR: [
@@ -36,7 +39,7 @@ export const searchService = {
         select: { id: true, name: true, slug: true, avatar: true, membersCount: true },
       }),
 
-      prisma.user.findMany({
+      this.prisma.user.findMany({
         where: {
           isBanned: false,
           OR: [
@@ -48,7 +51,7 @@ export const searchService = {
         select: { id: true, username: true, role: true, profile: { select: { avatar: true, bio: true } } },
       }),
 
-      prisma.book.findMany({
+      this.prisma.book.findMany({
         where: {
           isPublished: true,
           OR: [
@@ -63,25 +66,25 @@ export const searchService = {
 
     // Save search history
     if (userId) {
-      prisma.searchHistory.create({ data: { userId, query: q } }).catch(() => {})
+      this.prisma.searchHistory.create({ data: { userId, query: q } }).catch(() => {})
     }
 
     const result = { courses, communities, users, books, query: q }
-    await redis.setEx(cacheKey, 120, JSON.stringify(result))
+    await this.redis.setEx(cacheKey, 120, JSON.stringify(result))
     return result
-  },
+  }
 
   // Get search suggestions (autocomplete)
-  getSuggestions: async (query: string): Promise<string[]> => {
+  async getSuggestions(query: string): Promise<string[]> {
     if (query.length < 2) return []
 
     const [courses, communities] = await Promise.all([
-      prisma.course.findMany({
+      this.prisma.course.findMany({
         where: { status: 'PUBLISHED', title: { startsWith: query, mode: 'insensitive' } },
         take: 5,
         select: { title: true },
       }),
-      prisma.community.findMany({
+      this.prisma.community.findMany({
         where: { name: { startsWith: query, mode: 'insensitive' } },
         take: 3,
         select: { name: true },
@@ -94,5 +97,6 @@ export const searchService = {
     ]
 
     return [...new Set(suggestions)].slice(0, 8)
-  },
+  }
 }
+

@@ -619,6 +619,7 @@ model Course {
   language     Language     @default(AR)
   tags         String[]
   instructorId String
+  platformId   String?
   totalDuration Int         @default(0)
   studentsCount Int         @default(0)
   rating       Float        @default(0)

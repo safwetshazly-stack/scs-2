@@ -11,20 +11,23 @@ import { PrismaClient } from '@prisma/client'
 import { createClient } from 'redis'
 import { createAdapter } from '@socket.io/redis-adapter'
 
-import { authRoutes } from './routes/auth.routes'
-import { userRoutes } from './routes/user.routes'
-import { communityRoutes } from './routes/community.routes'
-import { chatRoutes } from './routes/chat.routes'
-import { courseRoutes } from './routes/course.routes'
-import { bookRoutes } from './routes/book.routes'
-import { aiRoutes } from './routes/ai.routes'
-import { paymentRoutes } from './routes/payment.routes'
-import { notificationRoutes } from './routes/notification.routes'
-import { adminRoutes } from './routes/admin.routes'
-import { uploadRoutes } from './routes/upload.routes'
-import { searchRoutes } from './routes/search.routes'
-import { webhookRoutes } from './routes/webhook.routes'
-import { platformRoutes } from './routes/platform.routes'
+// Module routes (use factory functions for DI)
+import { createAuthRoutes } from './modules/auth/routes/auth.routes'
+import { createUserRoutes } from './modules/user/routes/user.routes'
+import { createCommunityRoutes } from './modules/community/routes/community.routes'
+import { createChatRoutes } from './modules/chat/routes/chat.routes'
+import { createCourseRoutes } from './modules/course/routes/course.routes'
+import { createBookRoutes } from './modules/book/routes/book.routes'
+import { createAiRoutes } from './modules/ai/routes/ai.routes'
+import { createPaymentRoutes } from './modules/payment/routes/payment.routes'
+import { createPlatformRoutes } from './modules/platform/routes/platform.routes'
+import { createAdminRoutes } from './modules/admin/routes/admin.routes'
+
+// Legacy routes converted to factory functions
+import { createNotificationRoutes } from './routes/notification.routes'
+import { createUploadRoutes } from './routes/upload.routes'
+import { createSearchRoutes } from './routes/search.routes'
+import { createWebhookRoutes } from './routes/webhook.routes'
 
 import { startVideoWorker } from './workers/video.worker'
 
@@ -171,21 +174,24 @@ app.get('/health', async (_req, res) => {
   }
 })
 
-// ─── API ROUTES ───────────────────────────────────────────
-app.use('/api/auth',          authRoutes)
-app.use('/api/users',         userRoutes)
-app.use('/api/communities',   communityRoutes)
-app.use('/api/chat',          chatRoutes)
-app.use('/api/courses',       courseRoutes)
-app.use('/api/books',         bookRoutes)
-app.use('/api/ai',            aiRoutes)
-app.use('/api/payments',      paymentRoutes)
-app.use('/api/notifications', notificationRoutes)
-app.use('/api/admin',         adminRoutes)
-app.use('/api/upload',        uploadRoutes)
-app.use('/api/search',        searchRoutes)
-app.use('/api/webhooks',      webhookRoutes)
-app.use('/api/platforms',     platformRoutes)
+// ─── API ROUTES (WITH DEPENDENCY INJECTION) ───────────────
+// Initialize module routes with prisma and redis
+app.use('/api/auth',          createAuthRoutes(prisma, redis))
+app.use('/api/users',         createUserRoutes(prisma, redis))
+app.use('/api/communities',   createCommunityRoutes(prisma))
+app.use('/api/chat',          createChatRoutes(prisma))
+app.use('/api/courses',       createCourseRoutes(prisma))
+app.use('/api/books',         createBookRoutes(prisma))
+app.use('/api/ai',            createAiRoutes(prisma, redis))
+app.use('/api/payments',      createPaymentRoutes(prisma))
+app.use('/api/platforms',     createPlatformRoutes(prisma))
+app.use('/api/admin',         createAdminRoutes(prisma))
+
+// Routes with dependency injection
+app.use('/api/notifications', createNotificationRoutes(prisma))
+app.use('/api/upload',        createUploadRoutes(prisma))
+app.use('/api/search',        createSearchRoutes(prisma, redis))
+app.use('/api/webhooks',      createWebhookRoutes(prisma))
 
 // ─── 404 HANDLER ──────────────────────────────────────────
 app.use((_req: Request, res: Response) => {
