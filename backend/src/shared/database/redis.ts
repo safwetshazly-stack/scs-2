@@ -11,10 +11,12 @@
 import { createClient } from 'redis'
 import { env } from '../config/env'
 
+export type RedisClient = ReturnType<typeof createClient>
+
 const globalForRedis = global as unknown as { 
-  redis: ReturnType<typeof createClient>
-  pubClient: ReturnType<typeof createClient>
-  subClient: ReturnType<typeof createClient>
+  redis: RedisClient
+  pubClient: RedisClient
+  subClient: RedisClient
 }
 
 export const redis =

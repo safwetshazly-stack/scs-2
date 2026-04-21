@@ -6,7 +6,7 @@
 import { PrismaClient } from '@prisma/client'
 import { AppError } from '../../../utils/errors'
 import { logger } from '../../../utils/logger'
-import { slugify } from '../../../utils/slugify'
+import slugify from '../../../utils/slugify'
 
 export class BookService {
   constructor(private prisma: PrismaClient) {}
@@ -14,15 +14,15 @@ export class BookService {
   /**
    * Get all books with pagination
    */
-  async getBooks(limit = 20, offset = 0, filters?: { search?: string; genre?: string; authorId?: string }) {
+  async getBooks(limit = 20, offset = 0, filters?: { search?: string; tag?: string; authorId?: string }) {
     const where: any = { isPublished: true }
 
     if (filters?.search) {
       where.OR = [{ title: { contains: filters.search, mode: 'insensitive' } }, { description: { contains: filters.search, mode: 'insensitive' } }]
     }
 
-    if (filters?.genre) {
-      where.genre = filters.genre
+    if (filters?.tag) {
+      where.tags = { has: filters.tag }
     }
 
     if (filters?.authorId) {
@@ -56,7 +56,7 @@ export class BookService {
         author: { select: { id: true, username: true, profile: { select: { avatar: true, bio: true } } } },
         _count: { select: { purchases: true, reviews: true } },
         reviews: {
-          include: { reviewer: { select: { username: true, profile: { select: { avatar: true } } } } },
+          include: { user: { select: { username: true, profile: { select: { avatar: true } } } } },
           orderBy: { createdAt: 'desc' },
           take: 5,
         },
@@ -73,7 +73,7 @@ export class BookService {
   /**
    * Create book
    */
-  async createBook(authorId: string, data: { title: string; description: string; genre: string; price: number }) {
+  async createBook(authorId: string, data: { title: string; description: string; tags?: string[]; price: number; fileUrl: string }) {
     const slug = slugify(data.title) + '-' + Date.now()
 
     const book = await this.prisma.book.create({
@@ -81,7 +81,8 @@ export class BookService {
         title: data.title,
         slug,
         description: data.description,
-        genre: data.genre,
+        tags: data.tags || [],
+        fileUrl: data.fileUrl,
         price: data.price,
         authorId,
         isPublished: false,
@@ -121,7 +122,7 @@ export class BookService {
 
     const updated = await this.prisma.book.update({
       where: { id: bookId },
-      data: { isPublished: true, publishedAt: new Date() },
+      data: { isPublished: true },
     })
 
     logger.info(`Book published: ${bookId}`)
@@ -177,9 +178,9 @@ export class BookService {
     const review = await this.prisma.bookReview.create({
       data: {
         bookId,
-        reviewerId: userId,
+        userId,
         rating: Math.min(5, Math.max(1, data.rating)),
-        comment: data.comment,
+        content: data.comment,
       },
     })
 

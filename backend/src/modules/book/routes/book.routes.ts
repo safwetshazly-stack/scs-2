@@ -8,7 +8,7 @@ import { PrismaClient } from '@prisma/client'
 
 import { BookController } from '../controllers/book.controller'
 import { BookService } from '../services/book.service'
-import { authenticate, requireRole } from '../../../middlewares/auth.middleware'
+import { authenticate, requireRole } from '../../../shared/middlewares/auth.middleware'
 import { validate } from '../../../middlewares/validate.middleware'
 
 export function createBookRoutes(prisma: PrismaClient): Router {

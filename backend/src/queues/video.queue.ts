@@ -1,5 +1,5 @@
 import { Queue } from 'bullmq'
-import { redis } from '../server'
+import { redis } from '../shared/database/redis'
 
 export const videoQueue = new Queue('videoProcessing', {
   connection: redis as any,

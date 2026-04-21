@@ -3,10 +3,10 @@
  * Handles course management, enrollment, and progress tracking
  */
 
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient, CourseLevel } from '@prisma/client'
 import { AppError } from '../../../utils/errors'
 import { logger } from '../../../utils/logger'
-import { slugify } from '../../../utils/slugify'
+import slugify from '../../../utils/slugify'
 
 export class CourseService {
   constructor(private prisma: PrismaClient) {}
@@ -17,7 +17,7 @@ export class CourseService {
   async getCourses(
     limit = 20,
     offset = 0,
-    filters?: { search?: string; category?: string; level?: string; instructorId?: string }
+    filters?: { search?: string; tag?: string; level?: string; instructorId?: string }
   ) {
     const where: any = { status: 'PUBLISHED' }
 
@@ -25,8 +25,8 @@ export class CourseService {
       where.OR = [{ title: { contains: filters.search, mode: 'insensitive' } }, { description: { contains: filters.search, mode: 'insensitive' } }]
     }
 
-    if (filters?.category) {
-      where.category = filters.category
+    if (filters?.tag) {
+      where.tags = { has: filters.tag }
     }
 
     if (filters?.level) {
@@ -64,12 +64,12 @@ export class CourseService {
         instructor: { select: { id: true, username: true, profile: { select: { avatar: true, bio: true } } } },
         modules: {
           include: {
-            lessons: { select: { id: true, title: true, order: true, videoUrl: true, duration: true } },
+            lessons: { select: { id: true, title: true, position: true, videoUrl: true, duration: true } },
           },
         },
         _count: { select: { enrollments: true, reviews: true } },
         reviews: {
-          include: { reviewer: { select: { username: true, profile: { select: { avatar: true } } } } },
+          include: { user: { select: { username: true, profile: { select: { avatar: true } } } } },
           orderBy: { createdAt: 'desc' },
           take: 5,
         },
@@ -86,7 +86,7 @@ export class CourseService {
   /**
    * Create course
    */
-  async createCourse(instructorId: string, data: { title: string; description: string; category: string; level: string; price: number }) {
+  async createCourse(instructorId: string, data: { title: string; description: string; tags: string[]; level: string; price: number }) {
     const slug = slugify(data.title) + '-' + Date.now()
 
     const course = await this.prisma.course.create({
@@ -94,8 +94,8 @@ export class CourseService {
         title: data.title,
         slug,
         description: data.description,
-        category: data.category,
-        level: data.level,
+        tags: data.tags || [],
+        level: data.level as CourseLevel,
         price: data.price,
         instructorId,
         status: 'DRAFT',
@@ -135,14 +135,14 @@ export class CourseService {
     }
 
     // Check if course has content
-    const moduleCount = await this.prisma.module.count({ where: { courseId } })
+    const moduleCount = await this.prisma.courseModule.count({ where: { courseId } })
     if (moduleCount === 0) {
       throw new AppError('Course must have at least one module', 400)
     }
 
     const updated = await this.prisma.course.update({
       where: { id: courseId },
-      data: { status: 'PUBLISHED', publishedAt: new Date() },
+      data: { status: 'PUBLISHED' },
     })
 
     logger.info(`Course published: ${courseId}`)
@@ -193,17 +193,18 @@ export class CourseService {
 
     const lessonProgress = await this.prisma.lessonProgress.upsert({
       where: {
-        userId_lessonId: { userId, lessonId },
+        lessonId_userId: { lessonId, userId },
       },
       create: {
         userId,
         lessonId,
-        progress,
-        completed: progress >= 90,
+        isCompleted: progress >= 90,
+        watchedSecs: progress,
+        completedAt: progress >= 90 ? new Date() : null,
       },
       update: {
-        progress,
-        completed: progress >= 90,
+        isCompleted: progress >= 90,
+        watchedSecs: progress,
         completedAt: progress >= 90 ? new Date() : null,
       },
     })
@@ -252,9 +253,9 @@ export class CourseService {
     const review = await this.prisma.courseReview.create({
       data: {
         courseId,
-        reviewerId: userId,
+        userId,
         rating: Math.min(5, Math.max(1, data.rating)),
-        comment: data.comment,
+        content: data.comment,
       },
     })
 

@@ -7,8 +7,6 @@ import { createServer } from 'http'
 import { Server as SocketServer } from 'socket.io'
 import rateLimit from 'express-rate-limit'
 import hpp from 'hpp'
-import { PrismaClient } from '@prisma/client'
-import { createClient } from 'redis'
 import { createAdapter } from '@socket.io/redis-adapter'
 
 // Module routes (use factory functions for DI)
@@ -22,12 +20,10 @@ import { createAiRoutes } from './modules/ai/routes/ai.routes'
 import { createPaymentRoutes } from './modules/payment/routes/payment.routes'
 import { createPlatformRoutes } from './modules/platform/routes/platform.routes'
 import { createAdminRoutes } from './modules/admin/routes/admin.routes'
-
-// Legacy routes converted to factory functions
-import { createNotificationRoutes } from './routes/notification.routes'
-import { createUploadRoutes } from './routes/upload.routes'
-import { createSearchRoutes } from './routes/search.routes'
-import { createWebhookRoutes } from './routes/webhook.routes'
+import { createNotificationRoutes } from './modules/notification/routes/notification.routes'
+import { createUploadRoutes } from './modules/upload/routes/upload.routes'
+import { createSearchRoutes } from './modules/search/routes/search.routes'
+import { createWebhookRoutes } from './modules/webhook/routes/webhook.routes'
 
 import { startVideoWorker } from './workers/video.worker'
 
@@ -36,15 +32,11 @@ import { errorHandler } from './middlewares/error.middleware'
 import { sanitizeInput } from './middlewares/sanitize.middleware'
 import { logger } from './utils/logger'
 import { env } from './config/env'
+import { prisma } from './shared/database/prisma'
+import { redis, pubClient, subClient, connectRedis, disconnectRedis } from './shared/database/redis'
 
 // ─── INIT ──────────────────────────────────────────────────
-export const prisma = new PrismaClient({
-  log: env.NODE_ENV === 'development' ? ['query', 'error'] : ['error'],
-})
-
-export const redis = createClient({ url: env.REDIS_URL })
-export const pubClient = redis.duplicate()
-export const subClient = redis.duplicate()
+// prisma, redis, pubClient, subClient imported from shared/database/
 
 const app: Application = express()
 const httpServer = createServer(app)
@@ -187,9 +179,9 @@ app.use('/api/payments',      createPaymentRoutes(prisma))
 app.use('/api/platforms',     createPlatformRoutes(prisma))
 app.use('/api/admin',         createAdminRoutes(prisma))
 
-// Routes with dependency injection
+// Module routes with dependency injection
 app.use('/api/notifications', createNotificationRoutes(prisma))
-app.use('/api/upload',        createUploadRoutes(prisma))
+app.use('/api/upload',        createUploadRoutes())
 app.use('/api/search',        createSearchRoutes(prisma, redis))
 app.use('/api/webhooks',      createWebhookRoutes(prisma))
 
@@ -210,9 +202,7 @@ async function bootstrap() {
     await prisma.$connect()
     logger.info('✅ Database connected')
 
-    await redis.connect()
-    await pubClient.connect()
-    await subClient.connect()
+    await connectRedis()
     logger.info('✅ Redis connected')
 
     io.adapter(createAdapter(pubClient, subClient))
@@ -235,7 +225,7 @@ const shutdown = async (signal: string) => {
   logger.info(`${signal} received. Shutting down gracefully...`)
   httpServer.close(async () => {
     await prisma.$disconnect()
-    await redis.disconnect()
+    await disconnectRedis()
     logger.info('HTTP server closed')
     process.exit(0)
   })

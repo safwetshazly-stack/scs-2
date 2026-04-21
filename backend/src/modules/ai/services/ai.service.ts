@@ -4,14 +4,18 @@
  */
 
 import { PrismaClient } from '@prisma/client'
-import { RedisClientType } from 'redis'
+import { RedisClient } from '../../../shared/database/redis'
 import { AppError } from '../../../utils/errors'
 import { logger } from '../../../utils/logger'
+
+// Default limits (could be moved to config/subscription plan)
+const DEFAULT_TOKEN_LIMIT = 100000
+const DEFAULT_REQUEST_LIMIT = 500
 
 export class AiService {
   constructor(
     private prisma: PrismaClient,
-    private redis: RedisClientType
+    private redis: RedisClient
   ) {}
 
   /**
@@ -31,21 +35,21 @@ export class AiService {
       await this.prisma.aiUsage.update({
         where: { userId },
         data: {
-          tokensUsedThisMonth: 0,
-          requestsThisMonth: 0,
+          tokensUsed: 0,
+          requestCount: 0,
           resetAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         },
       })
 
       return {
         canUse: true,
-        tokensRemaining: usage.monthlyTokenLimit,
-        requestsRemaining: usage.monthlyRequestLimit,
+        tokensRemaining: DEFAULT_TOKEN_LIMIT,
+        requestsRemaining: DEFAULT_REQUEST_LIMIT,
       }
     }
 
-    const tokensRemaining = usage.monthlyTokenLimit - usage.tokensUsedThisMonth
-    const requestsRemaining = usage.monthlyRequestLimit - usage.requestsThisMonth
+    const tokensRemaining = DEFAULT_TOKEN_LIMIT - usage.tokensUsed
+    const requestsRemaining = DEFAULT_REQUEST_LIMIT - usage.requestCount
 
     return {
       canUse: tokensRemaining > 0 && requestsRemaining > 0,
@@ -61,8 +65,8 @@ export class AiService {
     await this.prisma.aiUsage.update({
       where: { userId },
       data: {
-        tokensUsedThisMonth: { increment: tokensUsed },
-        requestsThisMonth: { increment: 1 },
+        tokensUsed: { increment: tokensUsed },
+        requestCount: { increment: 1 },
       },
     })
 
@@ -70,46 +74,74 @@ export class AiService {
   }
 
   /**
-   * Save AI request to history
+   * Save AI request to history (as AiMessage in an AiConversation)
    */
   async saveRequest(userId: string, data: { request: string; response: string; provider: string; tokensUsed: number }) {
-    const history = await this.prisma.aiRequestHistory.create({
+    // Find or create a conversation for this user
+    let conversation = await this.prisma.aiConversation.findFirst({
+      where: { userId, isArchived: false },
+      orderBy: { updatedAt: 'desc' },
+    })
+
+    if (!conversation) {
+      conversation = await this.prisma.aiConversation.create({
+        data: {
+          userId,
+          title: data.request.slice(0, 50),
+        },
+      })
+    }
+
+    // Save user message
+    await this.prisma.aiMessage.create({
       data: {
-        userId,
-        request: data.request,
-        response: data.response,
-        provider: data.provider,
+        conversationId: conversation.id,
+        role: 'user',
+        content: data.request,
+        tokensUsed: 0,
+      },
+    })
+
+    // Save AI response
+    const message = await this.prisma.aiMessage.create({
+      data: {
+        conversationId: conversation.id,
+        role: 'assistant',
+        content: data.response,
+        modelUsed: data.provider as any,
         tokensUsed: data.tokensUsed,
       },
     })
 
     logger.info(`AI request saved: ${userId}`)
-    return history
+    return message
   }
 
   /**
-   * Get AI request history
+   * Get AI request history (from AiConversation/AiMessage)
    */
   async getHistory(userId: string, limit = 20, offset = 0) {
-    const [history, total] = await Promise.all([
-      this.prisma.aiRequestHistory.findMany({
+    const [conversations, total] = await Promise.all([
+      this.prisma.aiConversation.findMany({
         where: { userId },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { updatedAt: 'desc' },
         take: limit,
         skip: offset,
+        include: { messages: { orderBy: { createdAt: 'asc' } } },
       }),
-      this.prisma.aiRequestHistory.count({ where: { userId } }),
+      this.prisma.aiConversation.count({ where: { userId } }),
     ])
 
-    return { history, total }
+    return { history: conversations, total }
   }
 
   /**
-   * Clear history
+   * Clear history (archive all conversations)
    */
   async clearHistory(userId: string) {
-    await this.prisma.aiRequestHistory.deleteMany({
+    await this.prisma.aiConversation.updateMany({
       where: { userId },
+      data: { isArchived: true },
     })
 
     logger.info(`AI history cleared: ${userId}`)
@@ -122,7 +154,7 @@ export class AiService {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: {
-        enrollments: { include: { course: { select: { category: true } } } },
+        enrollments: { include: { course: { select: { tags: true } } } },
       },
     })
 
@@ -130,8 +162,9 @@ export class AiService {
       throw new AppError('User not found', 404)
     }
 
-    // Get user's preferred categories
-    const categories = user.enrollments.map((e) => e.course.category).filter(Boolean) as string[]
+    // Get user's preferred tags from enrolled courses
+    const tags = user.enrollments.flatMap((e) => e.course.tags).filter(Boolean) as string[]
+    const uniqueTags = [...new Set(tags)]
 
     if (type === 'courses') {
       const recommendations = await this.prisma.course.findMany({
@@ -140,7 +173,7 @@ export class AiService {
           NOT: {
             enrollments: { some: { userId } },
           },
-          category: categories.length > 0 ? { in: categories } : undefined,
+          tags: uniqueTags.length > 0 ? { hasSome: uniqueTags } : undefined,
         },
         include: {
           instructor: { select: { username: true } },

@@ -16,5 +16,5 @@
 export { AuthService } from './services/auth.service'
 export { AuthController } from './controllers/auth.controller'
 export { createAuthRoutes } from './routes/auth.routes'
-export { authenticate, optionalAuth, requireRole, requireAdmin, requireTeacher, requireInstructor, requireCreator } from '../../../middlewares/auth.middleware'
+export { authenticate, optionalAuth, requireRole, requireAdmin, requireTeacher, requireInstructor, requireCreator } from '../../../shared/middlewares/auth.middleware'
 export type { AuthPayload, RegisterRequest, LoginRequest } from './types'

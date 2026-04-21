@@ -6,7 +6,7 @@
 import { PrismaClient } from '@prisma/client'
 import { AppError } from '../../../utils/errors'
 import { logger } from '../../../utils/logger'
-import { slugify } from '../../../utils/slugify'
+import slugify from '../../../utils/slugify'
 
 export class PlatformService {
   constructor(private prisma: PrismaClient) {}
@@ -65,7 +65,7 @@ export class PlatformService {
             _count: { select: { enrollments: true } },
           },
         },
-        _count: { select: { courses: true, joinRequests: true } },
+        _count: { select: { courses: true } },
       },
     })
 
@@ -99,53 +99,42 @@ export class PlatformService {
   }
 
   /**
-   * Request to join platform
+   * Add course to platform (platform owner or course instructor)
    */
-  async requestJoin(platformId: string, userId: string) {
+  async addCourse(platformId: string, courseId: string, ownerId: string) {
     const platform = await this.prisma.platform.findUnique({ where: { id: platformId } })
-    if (!platform) {
-      throw new AppError('Platform not found', 404)
-    }
-
-    const existing = await this.prisma.platformJoinRequest.findFirst({
-      where: { platformId, creatorId: userId },
-    })
-
-    if (existing) {
-      throw new AppError('Request already pending', 409)
-    }
-
-    const request = await this.prisma.platformJoinRequest.create({
-      data: {
-        platformId,
-        creatorId: userId,
-        status: 'PENDING',
-      },
-    })
-
-    logger.info(`Join request created: ${userId} for platform ${platformId}`)
-    return request
-  }
-
-  /**
-   * Approve join request (platform owner only)
-   */
-  async approveJoinRequest(requestId: string, ownerId: string) {
-    const request = await this.prisma.platformJoinRequest.findUnique({
-      where: { id: requestId },
-      include: { platform: true },
-    })
-
-    if (!request || request.platform.ownerId !== ownerId) {
+    if (!platform || platform.ownerId !== ownerId) {
       throw new AppError('Not authorized', 403)
     }
 
-    await this.prisma.platformJoinRequest.update({
-      where: { id: requestId },
-      data: { status: 'APPROVED' },
+    const course = await this.prisma.course.findUnique({ where: { id: courseId } })
+    if (!course) {
+      throw new AppError('Course not found', 404)
+    }
+
+    await this.prisma.course.update({
+      where: { id: courseId },
+      data: { platformId },
     })
 
-    logger.info(`Join request approved: ${requestId}`)
+    logger.info(`Course ${courseId} added to platform ${platformId}`)
+  }
+
+  /**
+   * Remove course from platform
+   */
+  async removeCourse(platformId: string, courseId: string, ownerId: string) {
+    const platform = await this.prisma.platform.findUnique({ where: { id: platformId } })
+    if (!platform || platform.ownerId !== ownerId) {
+      throw new AppError('Not authorized', 403)
+    }
+
+    await this.prisma.course.update({
+      where: { id: courseId },
+      data: { platformId: null },
+    })
+
+    logger.info(`Course ${courseId} removed from platform ${platformId}`)
   }
 
   /**

@@ -8,7 +8,7 @@ import { PrismaClient } from '@prisma/client'
 
 import { AdminController } from '../controllers/admin.controller'
 import { AdminService } from '../services/admin.service'
-import { authenticate, requireRole } from '../../../middlewares/auth.middleware'
+import { authenticate, requireRole } from '../../../shared/middlewares/auth.middleware'
 import { validate } from '../../../middlewares/validate.middleware'
 
 export function createAdminRoutes(prisma: PrismaClient): Router {

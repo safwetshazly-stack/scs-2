@@ -12,7 +12,7 @@
 import bcrypt from 'bcryptjs'
 import { v4 as uuidv4 } from 'uuid'
 import { PrismaClient } from '@prisma/client'
-import { RedisClientType } from 'redis'
+import { RedisClient } from '../../../shared/database/redis'
 import { generateTokens, verifyRefreshToken } from '../../../utils/jwt'
 import { sendVerificationEmail, sendPasswordResetEmail } from '../../../utils/email'
 import { AppError } from '../../../utils/errors'
@@ -25,7 +25,7 @@ const LOCK_TIME = 15 * 60 // 15 minutes in seconds
 export class AuthService {
   constructor(
     private prisma: PrismaClient,
-    private redis: RedisClientType
+    private redis: RedisClient
   ) {}
 
   /**
@@ -206,7 +206,7 @@ export class AuthService {
     const payload = verifyRefreshToken(token)
 
     const session = await this.prisma.userSession.findFirst({
-      where: { token, isValid: true, userId: payload.id },
+      where: { token, isValid: true, userId: payload.userId },
     })
 
     if (!session || session.expiresAt < new Date()) {
@@ -214,7 +214,7 @@ export class AuthService {
     }
 
     const user = await this.prisma.user.findUnique({
-      where: { id: payload.id },
+      where: { id: payload.userId },
       select: { id: true, role: true, subscriptionTier: true, isBanned: true },
     })
 
@@ -305,18 +305,26 @@ export class AuthService {
     }
 
     const resetToken = uuidv4()
-    await this.prisma.passwordReset.upsert({
-      where: { userId: user.id },
-      create: {
-        userId: user.id,
-        token: resetToken,
-        expiresAt: new Date(Date.now() + 1 * 60 * 60 * 1000), // 1 hour
-      },
-      update: {
-        token: resetToken,
-        expiresAt: new Date(Date.now() + 1 * 60 * 60 * 1000),
-      },
-    })
+    // PasswordReset has no userId unique constraint, use findFirst + create/update
+    const existing = await this.prisma.passwordReset.findFirst({ where: { userId: user.id } })
+    if (existing) {
+      await this.prisma.passwordReset.update({
+        where: { id: existing.id },
+        data: {
+          token: resetToken,
+          expiresAt: new Date(Date.now() + 1 * 60 * 60 * 1000),
+          used: false,
+        },
+      })
+    } else {
+      await this.prisma.passwordReset.create({
+        data: {
+          userId: user.id,
+          token: resetToken,
+          expiresAt: new Date(Date.now() + 1 * 60 * 60 * 1000),
+        },
+      })
+    }
 
     await sendPasswordResetEmail(user.email, resetToken, user.username)
     logger.info(`Password reset email sent: ${user.email}`)
@@ -350,6 +358,44 @@ export class AuthService {
     ])
 
     logger.info(`Password reset: ${reset.user.email}`)
+  }
+
+  /**
+   * Get user from decoded token payload
+   * Used by auth middleware - handles cache, DB fallback, ban/active checks
+   */
+  async getUserFromToken(payload: { userId: string; role: string; subscriptionTier: string }, token?: string) {
+    // Check if token is blacklisted
+    if (token) {
+      const isBlacklisted = await this.redis.get(`blacklist:${token}`)
+      if (isBlacklisted) throw new AppError('Token has been invalidated', 401)
+    }
+
+    // Try cache first
+    const cacheKey = `auth:user:${payload.userId}`
+    const cached = await this.redis.get(cacheKey)
+    if (cached) {
+      const userData = JSON.parse(cached)
+      if (userData.isBanned) throw new AppError('Account banned', 403)
+      return { id: userData.id, role: userData.role, subscriptionTier: userData.subscriptionTier }
+    }
+
+    // Fallback to DB
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.userId },
+      select: { id: true, role: true, subscriptionTier: true, isBanned: true, isActive: true },
+    })
+
+    if (!user) throw new AppError('User not found', 401)
+    if (user.isBanned) throw new AppError('Account banned', 403)
+    if (!user.isActive) throw new AppError('Account deactivated', 403)
+
+    const userData = { id: user.id, role: user.role, subscriptionTier: user.subscriptionTier }
+
+    // Refresh cache
+    await this.redis.setEx(cacheKey, 3600, JSON.stringify({ ...userData, isBanned: user.isBanned }))
+
+    return userData
   }
 
   /**

@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { PrismaClient } from '@prisma/client'
 import { NotificationService } from '../services/notification.service'
 import { NotificationController } from '../controllers/notification.controller'
-import { authenticate } from '../../../middlewares/auth.middleware'
+import { authenticate } from '../../../shared/middlewares/auth.middleware'
 
 export function createNotificationRoutes(prisma: PrismaClient): Router {
   const router = Router()

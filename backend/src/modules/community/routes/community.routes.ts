@@ -8,7 +8,7 @@ import { PrismaClient } from '@prisma/client'
 
 import { CommunityController } from '../controllers/community.controller'
 import { CommunityService } from '../services/community.service'
-import { authenticate } from '../../../middlewares/auth.middleware'
+import { authenticate } from '../../../shared/middlewares/auth.middleware'
 import { validate } from '../../../middlewares/validate.middleware'
 
 export function createCommunityRoutes(prisma: PrismaClient): Router {

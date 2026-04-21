@@ -8,7 +8,7 @@ import { PrismaClient } from '@prisma/client'
 
 import { PaymentController } from '../controllers/payment.controller'
 import { PaymentService } from '../services/payment.service'
-import { authenticate } from '../../../middlewares/auth.middleware'
+import { authenticate } from '../../../shared/middlewares/auth.middleware'
 import { validate } from '../../../middlewares/validate.middleware'
 import { env } from '../../../config/env'
 

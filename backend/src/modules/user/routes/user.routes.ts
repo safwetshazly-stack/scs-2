@@ -5,14 +5,14 @@
 import { Router } from 'express'
 import { param } from 'express-validator'
 import { PrismaClient } from '@prisma/client'
-import { RedisClientType } from 'redis'
+import { RedisClient } from '../../../shared/database/redis'
 
 import { UserController } from '../controllers/user.controller'
 import { UserService } from '../services/user.service'
-import { authenticate } from '../../../middlewares/auth.middleware'
+import { authenticate } from '../../../shared/middlewares/auth.middleware'
 import { validate } from '../../../middlewares/validate.middleware'
 
-export function createUserRoutes(prisma: PrismaClient, redis: RedisClientType): Router {
+export function createUserRoutes(prisma: PrismaClient, redis: RedisClient): Router {
   const router = Router()
 
   const userService = new UserService(prisma, redis)

@@ -4,13 +4,13 @@
 
 import { Router } from 'express'
 import { PrismaClient } from '@prisma/client'
-import { RedisClientType } from 'redis'
+import { RedisClient } from '../../../shared/database/redis'
 
 import { AiController } from '../controllers/ai.controller'
 import { AiService } from '../services/ai.service'
-import { authenticate } from '../../shared/middlewares/auth.middleware'
+import { authenticate } from '../../../shared/middlewares/auth.middleware'
 
-export function createAiRoutes(prisma: PrismaClient, redis: RedisClientType): Router {
+export function createAiRoutes(prisma: PrismaClient, redis: RedisClient): Router {
   const router = Router()
 
   const aiService = new AiService(prisma, redis)

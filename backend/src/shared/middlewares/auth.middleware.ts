@@ -1,18 +1,25 @@
 /**
  * SHARED Auth Middleware
  * 
- * This middleware is used by ALL modules for authentication and authorization
- * Located in shared layer because it's used across all domains
+ * This middleware is used by ALL modules for authentication and authorization.
+ * Located in shared layer because it's used across all domains.
  * 
- * DO NOT move this file to a specific module
- * Register once in server.ts and all routes inherit it
+ * RULES:
+ * - Middleware ONLY decodes JWT tokens and calls AuthService
+ * - NO direct database (Prisma) access
+ * - NO direct Redis access
+ * - All user lookups delegated to AuthService.getUserFromToken()
+ * 
+ * DO NOT move this file to a specific module.
  */
 
 import { Request, Response, NextFunction } from 'express'
+import jwt from 'jsonwebtoken'
+import { env } from '../../config/env'
+import { AppError } from '../../utils/errors'
+import { AuthService } from '../../modules/auth/services/auth.service'
+import { prisma } from '../database/prisma'
 import { redis } from '../database/redis'
-import { AppError } from '../utils/errors'
-import { verifyToken } from '../utils/jwt'
-import { logger } from '../utils/logger'
 
 // Extend Express Request type to include user
 declare global {
@@ -20,110 +27,84 @@ declare global {
     interface Request {
       user?: {
         id: string
-        role: 'ADMIN' | 'TEACHER' | 'CREATOR' | 'NORMAL'
-        subscriptionTier: 'FREE' | 'PRO' | 'ENTERPRISE'
-        email: string
-        isBanned: boolean
+        role: string
+        subscriptionTier: string
       }
     }
   }
 }
 
+// Singleton AuthService instance for middleware use
+const authService = new AuthService(prisma, redis)
+
 /**
  * Main authentication middleware
- * Validates JWT token and loads user info from cache
- * 
- * Usage: app.use(authenticate)
+ * Decodes JWT token and delegates user lookup to AuthService
  */
 export async function authenticate(
   req: Request,
-  res: Response,
+  _res: Response,
   next: NextFunction
 ): Promise<void> {
   try {
-    const token = req.headers.authorization?.split(' ')[1]
-    if (!token) {
-      throw new AppError('No token provided', 401)
+    const authHeader = req.headers.authorization
+    if (!authHeader?.startsWith('Bearer ')) {
+      throw new AppError('Authentication required', 401)
     }
 
-    const payload = verifyToken(token)
-    if (!payload) {
-      throw new AppError('Invalid token', 401)
+    const token = authHeader.split(' ')[1]
+    if (!token) throw new AppError('Token missing', 401)
+
+    // Decode JWT only
+    const payload = jwt.verify(token, env.JWT_ACCESS_SECRET) as {
+      userId: string
+      role: string
+      subscriptionTier: string
     }
 
-    // Try to load user from cache first
-    const cacheKey = `auth:user:${payload.id}`
-    let user = await redis.get(cacheKey)
-    let userData
+    // Delegate all DB/cache logic to AuthService
+    const user = await authService.getUserFromToken(payload, token)
 
-    if (user) {
-      userData = JSON.parse(user)
-    } else {
-      // Cache miss - user info would be fetched from DB in actual implementation
-      // For now, we reconstruct from token
-      userData = payload
-      
-      // Cache for 1 hour
-      await redis.setEx(cacheKey, 3600, JSON.stringify(userData))
-    }
-
-    // Check if user is banned
-    if (userData.isBanned) {
-      throw new AppError('User account is banned', 403)
-    }
-
-    req.user = userData
+    req.user = user
     next()
   } catch (error) {
-    logger.error('Authentication error:', error)
-    if (error instanceof AppError) {
-      res.status(error.statusCode).json({ message: error.message })
-    } else {
-      res.status(401).json({ message: 'Authentication failed' })
+    if (error instanceof jwt.JsonWebTokenError) {
+      return next(new AppError('Invalid token', 401))
     }
+    if (error instanceof jwt.TokenExpiredError) {
+      return next(new AppError('Token expired', 401))
+    }
+    next(error)
   }
 }
 
 /**
  * Optional authentication middleware
- * Loads user info if token present, continues if not
- * 
- * Usage: optionalAuth, getProfile
+ * Decodes token if present, continues without auth if not
  */
 export async function optionalAuth(
   req: Request,
-  res: Response,
+  _res: Response,
   next: NextFunction
 ): Promise<void> {
   try {
-    const token = req.headers.authorization?.split(' ')[1]
-    if (!token) {
-      return next()
+    const authHeader = req.headers.authorization
+    if (!authHeader?.startsWith('Bearer ')) return next()
+
+    const token = authHeader.split(' ')[1]
+    if (!token) return next()
+
+    const payload = jwt.verify(token, env.JWT_ACCESS_SECRET) as {
+      userId: string
+      role: string
+      subscriptionTier: string
     }
 
-    const payload = verifyToken(token)
-    if (!payload) {
-      return next()
-    }
-
-    const cacheKey = `auth:user:${payload.id}`
-    let user = await redis.get(cacheKey)
-    let userData
-
-    if (user) {
-      userData = JSON.parse(user)
-    } else {
-      userData = payload
-      await redis.setEx(cacheKey, 3600, JSON.stringify(userData))
-    }
-
-    if (!userData.isBanned) {
-      req.user = userData
-    }
-
+    const user = await authService.getUserFromToken(payload, token)
+    req.user = user
     next()
-  } catch (error) {
-    logger.warn('Optional auth error, continuing without auth:', error)
+  } catch {
+    // Optional auth - continue without user on any error
     next()
   }
 }
@@ -134,42 +115,19 @@ export async function optionalAuth(
  * Usage: requireRole('TEACHER', 'ADMIN')
  */
 export function requireRole(...roles: string[]) {
-  return (req: Request, res: Response, next: NextFunction): void => {
-    if (!req.user) {
-      res.status(401).json({ message: 'Authentication required' })
-      return
-    }
-
+  return (req: Request, _res: Response, next: NextFunction): void => {
+    if (!req.user) throw new AppError('Authentication required', 401)
     if (!roles.includes(req.user.role)) {
-      res.status(403).json({ 
-        message: `Requires one of these roles: ${roles.join(', ')}` 
-      })
-      return
+      throw new AppError('Insufficient permissions', 403)
     }
-
     next()
   }
 }
 
-/**
- * Admin-only access
- */
 export const requireAdmin = requireRole('ADMIN')
-
-/**
- * Teacher-only access
- */
-export const requireTeacher = requireRole('TEACHER')
-
-/**
- * Creator-only access
- */
-export const requireCreator = requireRole('CREATOR')
-
-/**
- * Creator or Teacher access
- */
-export const requireInstructor = requireRole('TEACHER', 'CREATOR')
+export const requireTeacher = requireRole('TEACHER', 'ADMIN')
+export const requireCreator = requireRole('CREATOR', 'ADMIN')
+export const requireInstructor = requireRole('TEACHER', 'ADMIN')
 
 /**
  * Subscription-level access
@@ -177,19 +135,12 @@ export const requireInstructor = requireRole('TEACHER', 'CREATOR')
  * Usage: requireSubscription('PRO', 'ENTERPRISE')
  */
 export function requireSubscription(...tiers: string[]) {
-  return (req: Request, res: Response, next: NextFunction): void => {
-    if (!req.user) {
-      res.status(401).json({ message: 'Authentication required' })
-      return
-    }
-
+  return (req: Request, _res: Response, next: NextFunction): void => {
+    if (!req.user) throw new AppError('Authentication required', 401)
+    if (req.user.role === 'ADMIN') return next()
     if (!tiers.includes(req.user.subscriptionTier)) {
-      res.status(403).json({
-        message: `Requires one of these subscription tiers: ${tiers.join(', ')}`
-      })
-      return
+      throw new AppError('Subscription required for this feature', 403)
     }
-
     next()
   }
 }

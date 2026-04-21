@@ -8,7 +8,7 @@ import { PrismaClient } from '@prisma/client'
 
 import { PlatformController } from '../controllers/platform.controller'
 import { PlatformService } from '../services/platform.service'
-import { authenticate } from '../../../middlewares/auth.middleware'
+import { authenticate } from '../../../shared/middlewares/auth.middleware'
 import { validate } from '../../../middlewares/validate.middleware'
 
 export function createPlatformRoutes(prisma: PrismaClient): Router {

@@ -3,15 +3,15 @@
  * Handles user profiles, settings, and social relationships
  */
 
-import { PrismaClient } from '@prisma/client'
-import { RedisClientType } from 'redis'
+import { PrismaClient, Language, Theme } from '@prisma/client'
+import { RedisClient } from '../../../shared/database/redis'
 import { AppError } from '../../../utils/errors'
 import { logger } from '../../../utils/logger'
 
 export class UserService {
   constructor(
     private prisma: PrismaClient,
-    private redis: RedisClientType
+    private redis: RedisClient
   ) {}
 
   /**
@@ -88,8 +88,8 @@ export class UserService {
   async updateSettings(
     userId: string,
     data: {
-      language?: string
-      theme?: string
+      language?: Language
+      theme?: Theme
       emailNotifications?: boolean
       pushNotifications?: boolean
       showOnlineStatus?: boolean

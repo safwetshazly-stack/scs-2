@@ -1,10 +1,9 @@
 import { PrismaClient } from '@prisma/client'
-import { RedisClientType } from 'redis'
+import { RedisClient } from '../../../shared/database/redis'
 
 export class SearchService {
-  constructor(private prisma: PrismaClient, private redis: RedisClientType) {}
+  constructor(private prisma: PrismaClient, private redis: RedisClient) {}
 
-  // Global search across courses, communities, users, books
   async globalSearch(query: string, userId?: string) {
     if (!query || query.trim().length < 2) return { courses: [], communities: [], users: [], books: [] }
 
@@ -64,7 +63,6 @@ export class SearchService {
       }),
     ])
 
-    // Save search history
     if (userId) {
       this.prisma.searchHistory.create({ data: { userId, query: q } }).catch(() => {})
     }
@@ -74,7 +72,6 @@ export class SearchService {
     return result
   }
 
-  // Get search suggestions (autocomplete)
   async getSuggestions(query: string): Promise<string[]> {
     if (query.length < 2) return []
 
@@ -99,4 +96,3 @@ export class SearchService {
     return [...new Set(suggestions)].slice(0, 8)
   }
 }
-

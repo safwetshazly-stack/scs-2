@@ -47,7 +47,7 @@ export class AdminService {
         where,
         include: {
           profile: { select: { avatar: true } },
-          _count: { select: { enrollments: true, coursesCreated: true, booksAuthored: true } },
+          _count: { select: { enrollments: true, coursesCreated: true, booksUploaded: true } },
         },
         orderBy: { createdAt: 'desc' },
         take: limit,
@@ -73,7 +73,6 @@ export class AdminService {
       data: {
         isBanned: true,
         banReason: reason,
-        bannedAt: new Date(),
       },
     })
 
@@ -94,7 +93,6 @@ export class AdminService {
       data: {
         isBanned: false,
         banReason: null,
-        bannedAt: null,
       },
     })
 
@@ -188,10 +186,10 @@ export class AdminService {
   /**
    * Get reported content
    */
-  async getReports(limit = 20, offset = 0, status = 'PENDING') {
+  async getReports(limit = 20, offset = 0, resolved = false) {
     const [reports, total] = await Promise.all([
       this.prisma.report.findMany({
-        where: { status },
+        where: { isResolved: resolved },
         include: {
           reporter: { select: { username: true } },
         },
@@ -199,7 +197,7 @@ export class AdminService {
         take: limit,
         skip: offset,
       }),
-      this.prisma.report.count({ where: { status } }),
+      this.prisma.report.count({ where: { isResolved: resolved } }),
     ])
 
     return { reports, total }
@@ -220,8 +218,8 @@ export class AdminService {
     await this.prisma.report.update({
       where: { id: reportId },
       data: {
-        status: 'RESOLVED',
-        resolution,
+        isResolved: true,
+        description: report.description ? `${report.description}\n[RESOLVED] ${resolution}` : `[RESOLVED] ${resolution}`,
         resolvedAt: new Date(),
       },
     })

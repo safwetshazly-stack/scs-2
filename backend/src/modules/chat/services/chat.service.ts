@@ -3,7 +3,7 @@
  * Handles real-time chat, messages, and notifications
  */
 
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient, ConversationType, MessageType } from '@prisma/client'
 import { AppError } from '../../../utils/errors'
 import { logger } from '../../../utils/logger'
 
@@ -19,15 +19,15 @@ export class ChatService {
 
     let conversation = await this.prisma.conversation.findFirst({
       where: {
-        AND: [{ participants: { some: { userId: participant1 } } }, { participants: { some: { userId: participant2 } } }],
+        AND: [{ members: { some: { userId: participant1 } } }, { members: { some: { userId: participant2 } } }],
       },
     })
 
     if (!conversation) {
       conversation = await this.prisma.conversation.create({
         data: {
-          type: 'DIRECT',
-          participants: {
+          type: ConversationType.PRIVATE,
+          members: {
             create: [{ userId: participant1 }, { userId: participant2 }],
           },
         },
@@ -44,12 +44,12 @@ export class ChatService {
    */
   async sendMessage(conversationId: string, senderId: string, content: string) {
     // Verify user is in conversation
-    const participant = await this.prisma.conversationParticipant.findFirst({
+    const member = await this.prisma.conversationMember.findFirst({
       where: { conversationId, userId: senderId },
     })
 
-    if (!participant) {
-      throw new AppError('Not a participant in this conversation', 403)
+    if (!member) {
+      throw new AppError('Not a member in this conversation', 403)
     }
 
     const message = await this.prisma.message.create({
@@ -57,13 +57,14 @@ export class ChatService {
         conversationId,
         senderId,
         content,
+        type: MessageType.TEXT,
       },
     })
 
-    // Update conversation's last message
+    // Update conversation updatedAt for sorting
     await this.prisma.conversation.update({
       where: { id: conversationId },
-      data: { lastMessageAt: new Date() },
+      data: { updatedAt: new Date() },
     })
 
     logger.info(`Message sent: ${message.id}`)
@@ -95,29 +96,25 @@ export class ChatService {
    */
   async getUserConversations(userId: string, limit = 20, offset = 0) {
     const [conversations, total] = await Promise.all([
-      this.prisma.conversationParticipant.findMany({
+      this.prisma.conversationMember.findMany({
         where: { userId },
         include: {
           conversation: {
             include: {
-              participants: {
+              members: {
                 include: {
                   user: { select: { id: true, username: true, profile: { select: { avatar: true } } } },
                 },
               },
-              lastMessage: {
-                include: {
-                  sender: { select: { username: true } },
-                },
-              },
+              messages: { take: 1, orderBy: { createdAt: 'desc' }, include: { sender: { select: { username: true } } } },
             },
           },
         },
-        orderBy: { conversation: { lastMessageAt: 'desc' } },
+        orderBy: { conversation: { updatedAt: 'desc' } },
         take: limit,
         skip: offset,
       }),
-      this.prisma.conversationParticipant.count({ where: { userId } }),
+      this.prisma.conversationMember.count({ where: { userId } }),
     ])
 
     return {
@@ -140,12 +137,12 @@ export class ChatService {
     }
 
     // Verify user is in conversation
-    const participant = await this.prisma.conversationParticipant.findFirst({
+    const member = await this.prisma.conversationMember.findFirst({
       where: { conversationId: message.conversationId, userId },
     })
 
-    if (!participant) {
-      throw new AppError('Not a participant', 403)
+    if (!member) {
+      throw new AppError('Not a member', 403)
     }
 
     await this.prisma.messageRead.upsert({
@@ -158,52 +155,81 @@ export class ChatService {
   }
 
   /**
-   * Send notification
+   * Create group conversation
    */
-  async sendNotification(userId: string, type: string, title: string, body: string, data?: any) {
-    const notification = await this.prisma.notification.create({
+  async createGroupConversation(creatorId: string, data: { name: string; memberIds: string[]; avatar?: string }) {
+    const conversation = await this.prisma.conversation.create({
       data: {
-        userId,
-        type,
-        title,
-        body,
-        data: data || {},
+        type: ConversationType.GROUP,
+        name: data.name,
+        avatar: data.avatar,
+        members: {
+          create: [
+            { userId: creatorId, isAdmin: true },
+            ...data.memberIds.map((id) => ({ userId: id, isAdmin: false })),
+          ],
+        },
       },
+      include: { members: true },
     })
 
-    logger.info(`Notification sent: ${notification.id} to ${userId}`)
-    return notification
+    logger.info(`Group conversation created: ${conversation.id} by ${creatorId}`)
+    return conversation
   }
 
   /**
-   * Get notifications
+   * Add member to group conversation
    */
-  async getNotifications(userId: string, limit = 20, offset = 0, unreadOnly = false) {
-    const where: any = { userId }
-    if (unreadOnly) {
-      where.readAt = null
-    }
+  async addMember(conversationId: string, userId: string, addedBy: string) {
+    const adder = await this.prisma.conversationMember.findFirst({
+      where: { conversationId, userId: addedBy, isAdmin: true },
+    })
+    if (!adder) throw new AppError('Only admins can add members', 403)
 
-    const [notifications, total] = await Promise.all([
-      this.prisma.notification.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        take: limit,
-        skip: offset,
-      }),
-      this.prisma.notification.count({ where }),
-    ])
-
-    return { notifications, total }
+    return this.prisma.conversationMember.create({
+      data: { conversationId, userId, isAdmin: false },
+    })
   }
 
   /**
-   * Mark notification as read
+   * Remove member from group conversation
    */
-  async markNotificationAsRead(notificationId: string) {
-    await this.prisma.notification.update({
-      where: { id: notificationId },
-      data: { readAt: new Date() },
+  async removeMember(conversationId: string, userId: string, removedBy: string) {
+    const remover = await this.prisma.conversationMember.findFirst({
+      where: { conversationId, userId: removedBy, isAdmin: true },
+    })
+    if (!remover) throw new AppError('Only admins can remove members', 403)
+
+    const member = await this.prisma.conversationMember.findFirst({
+      where: { conversationId, userId },
+    })
+    if (!member) throw new AppError('Member not found', 404)
+
+    await this.prisma.conversationMember.delete({ where: { id: member.id } })
+  }
+
+  /**
+   * Add reaction to message
+   */
+  async addReaction(messageId: string, userId: string, emoji: string) {
+    return this.prisma.messageReaction.upsert({
+      where: { messageId_userId_emoji: { messageId, userId, emoji } },
+      create: { messageId, userId, emoji },
+      update: {},
+    })
+  }
+
+  /**
+   * Delete message (soft delete)
+   */
+  async deleteMessage(messageId: string, userId: string) {
+    const message = await this.prisma.message.findUnique({ where: { id: messageId } })
+    if (!message) throw new AppError('Message not found', 404)
+    if (message.senderId !== userId) throw new AppError('Not authorized', 403)
+
+    await this.prisma.message.update({
+      where: { id: messageId },
+      data: { deletedAt: new Date() },
     })
   }
 }

@@ -227,17 +227,19 @@ export class PaymentService {
             data: {
               userId,
               planId: itemId,
-              stripeSubscriptionId: subscription.id,
+              stripeSubId: subscription.id,
               status: 'ACTIVE',
               currentPeriodStart: new Date(subscription.current_period_start * 1000),
               currentPeriodEnd: new Date(subscription.current_period_end * 1000),
             },
           })
 
-          // Update subscription tier
+          // Update subscription tier based on plan name
+          const tierMap: Record<string, string> = { 'Silver': 'SILVER', 'Gold': 'GOLD' }
+          const tier = tierMap[plan.name] || 'FREE'
           await tx.user.update({
             where: { id: userId },
-            data: { subscriptionTier: plan.tier as any },
+            data: { subscriptionTier: tier as any },
           })
 
           logger.info(`Subscription created: ${userId} - ${plan.name}`)
@@ -278,14 +280,14 @@ export class PaymentService {
     }
 
     // Cancel Stripe subscription
-    if (subscription.stripeSubscriptionId) {
-      await stripe.subscriptions.cancel(subscription.stripeSubscriptionId)
+    if (subscription.stripeSubId) {
+      await stripe.subscriptions.cancel(subscription.stripeSubId)
     }
 
     // Mark as cancelled
     await this.prisma.userSubscription.update({
       where: { id: subscription.id },
-      data: { status: 'CANCELLED', cancelledAt: new Date() },
+      data: { status: 'cancelled', cancelAt: new Date() },
     })
 
     // Downgrade user tier

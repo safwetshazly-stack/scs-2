@@ -8,7 +8,7 @@ import { PrismaClient } from '@prisma/client'
 
 import { CourseController } from '../controllers/course.controller'
 import { CourseService } from '../services/course.service'
-import { authenticate, requireRole } from '../../../middlewares/auth.middleware'
+import { authenticate, requireRole } from '../../../shared/middlewares/auth.middleware'
 import { validate } from '../../../middlewares/validate.middleware'
 
 export function createCourseRoutes(prisma: PrismaClient): Router {

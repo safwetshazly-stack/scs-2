@@ -8,7 +8,7 @@ import { PrismaClient } from '@prisma/client'
 
 import { ChatController } from '../controllers/chat.controller'
 import { ChatService } from '../services/chat.service'
-import { authenticate } from '../../../middlewares/auth.middleware'
+import { authenticate } from '../../../shared/middlewares/auth.middleware'
 import { validate } from '../../../middlewares/validate.middleware'
 
 export function createChatRoutes(prisma: PrismaClient): Router {
