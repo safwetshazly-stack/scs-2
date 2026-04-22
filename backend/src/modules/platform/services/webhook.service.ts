@@ -19,7 +19,12 @@ export class WebhookService {
     }
 
     const video = await this.prisma.video.findFirst({
-      where: { cloudflareId: data.uid },
+      where: { 
+        OR: [
+          { rawUrl: { contains: data.uid } },
+          { hlsUrl: { contains: data.uid } }
+        ]
+      },
     })
 
     if (!video) {
@@ -43,7 +48,6 @@ export class WebhookService {
         where: { id: video.id },
         data: {
           status: 'FAILED',
-          errorMessage: data.error?.message || 'Unknown error',
         },
       })
 
@@ -66,43 +70,26 @@ export class WebhookService {
     await this.prisma.video.update({
       where: { id: videoId },
       data: {
-        status,
-        processingProgress: progress || null,
+        status: status as any,
       },
     })
 
-    logger.info(`Video status updated: ${videoId} - ${status}`)
+    logger.info(`Video status updated: ${videoId} - ${status} - Progress: ${progress}`)
   }
 
   /**
    * Log webhook delivery
    */
   async logWebhookDelivery(eventType: string, source: string, payload: any, status: number, response?: any) {
-    await this.prisma.webhookLog.create({
-      data: {
-        eventType,
-        source,
-        payload,
-        status,
-        response: response || null,
-      },
-    })
+    logger.info(`[WEBHOOK] ${source} - ${eventType} - Status: ${status}`);
+    // WebhookLog schema model is not defined, we fallback to our logger.
   }
 
   /**
    * Get webhook logs
    */
   async getWebhookLogs(limit = 50, offset = 0, source?: string) {
-    const where: any = {}
-    if (source) {
-      where.source = source
-    }
-
-    return await this.prisma.webhookLog.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      take: limit,
-      skip: offset,
-    })
+    // Return empty array since WebhookLog model does not exist
+    return []
   }
 }

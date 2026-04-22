@@ -41,6 +41,24 @@ enum PlatformTheme {
   CUSTOM
 }
 
+enum PlatformStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum DownloadResourceType {
+  COURSE
+  BOOK
+  VIDEO
+}
+
+enum TransactionType {
+  COURSE_PURCHASE
+  BOOK_PURCHASE
+  PLATFORM_SUBSCRIPTION
+}
+
 enum Theme {
   LIGHT
   DARK
@@ -212,6 +230,11 @@ model User {
   searchHistory     SearchHistory[]
   bookmarks         Bookmark[]
   supportTickets    SupportTicket[]
+
+  platformRequests  PlatformRequest[]
+  library           UserLibrary?
+  downloadTokens    DownloadToken[]
+  downloadLogs      DownloadLog[]
 
   @@index([email])
   @@index([username])
@@ -590,6 +613,9 @@ model Platform {
   slug           String   @unique
   description    String?
   theme          PlatformTheme @default(LIGHT)
+  status         PlatformStatus @default(PENDING)
+  colors         Json?
+  template       String?
   commissionRate Float    @default(0.15)
   logo           String?
   coverImage     String?
@@ -599,9 +625,35 @@ model Platform {
 
   owner          User     @relation("PlatformOwner", fields: [ownerId], references: [id])
   courses        Course[]
+  settings       PlatformSettings?
 
   @@index([ownerId])
   @@index([slug])
+}
+
+model PlatformRequest {
+  id          String         @id @default(uuid())
+  userId      String
+  platformId  String?
+  name        String
+  description String?
+  status      PlatformStatus @default(PENDING)
+  notes       String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  user        User           @relation(fields: [userId], references: [id])
+}
+
+model PlatformSettings {
+  id           String   @id @default(uuid())
+  platformId   String   @unique
+  allowGuests  Boolean  @default(true)
+  customDomain String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  platform     Platform @relation(fields: [platformId], references: [id], onDelete: Cascade)
 }
 
 // ─── COURSES ──────────────────────────────────────────────
@@ -633,6 +685,7 @@ model Course {
   modules      CourseModule[]
   enrollments  CourseEnrollment[]
   reviews      CourseReview[]
+  libraryCourses LibraryCourse[]
 
   @@index([slug])
   @@index([instructorId])
@@ -771,6 +824,7 @@ model Book {
   author       User     @relation("BookAuthor", fields: [authorId], references: [id])
   purchases    BookPurchase[]
   reviews      BookReview[]
+  libraryBooks LibraryBook[]
 
   @@index([slug])
   @@index([authorId])
@@ -825,13 +879,27 @@ model Payment {
 }
 
 model Transaction {
-  id          String   @id @default(uuid())
+  id          String          @id @default(uuid())
   paymentId   String
+  type        TransactionType
+  referenceId String
   description String
   amount      Float
-  createdAt   DateTime @default(now())
+  createdAt   DateTime        @default(now())
 
-  payment     Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  payment     Payment         @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  commission  Commission?
+}
+
+model Commission {
+  id            String   @id @default(uuid())
+  transactionId String   @unique
+  rate          Float
+  amount        Float
+  description   String?
+  createdAt     DateTime @default(now())
+
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
 }
 
 model Order {
@@ -862,6 +930,17 @@ model SubscriptionPlan {
   createdAt     DateTime @default(now())
 
   subscriptions UserSubscription[]
+  usageLimits   UsageLimits?
+}
+
+model UsageLimits {
+  id                 String           @id @default(uuid())
+  subscriptionPlanId String           @unique
+  maxCourses         Int              @default(0)
+  maxStorageMB       Int              @default(100)
+  customFeatureFlag  Boolean          @default(false)
+
+  plan               SubscriptionPlan @relation(fields: [subscriptionPlanId], references: [id], onDelete: Cascade)
 }
 
 model UserSubscription {
@@ -1107,4 +1186,71 @@ model FeatureFlag {
   name      String   @unique
   enabled   Boolean  @default(false)
   updatedAt DateTime @updatedAt
+}
+
+// ─── USER LIBRARY & DOWNLOADS ─────────────────────────────
+model UserLibrary {
+  id        String          @id @default(uuid())
+  userId    String          @unique
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courses   LibraryCourse[]
+  books     LibraryBook[]
+}
+
+model LibraryCourse {
+  id           String      @id @default(uuid())
+  libraryId    String
+  courseId     String
+  progress     Float       @default(0)
+  isOffline    Boolean     @default(false)
+  lastOpenedAt DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  library      UserLibrary @relation(fields: [libraryId], references: [id], onDelete: Cascade)
+  course       Course      @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([libraryId, courseId])
+}
+
+model LibraryBook {
+  id           String      @id @default(uuid())
+  libraryId    String
+  bookId       String
+  isOffline    Boolean     @default(false)
+  lastOpenedAt DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  library      UserLibrary @relation(fields: [libraryId], references: [id], onDelete: Cascade)
+  book         Book        @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@unique([libraryId, bookId])
+}
+
+model DownloadToken {
+  id           String               @id @default(uuid())
+  userId       String
+  resourceType DownloadResourceType
+  resourceId   String
+  token        String               @unique
+  expiresAt    DateTime
+  isUsed       Boolean              @default(false)
+  createdAt    DateTime             @default(now())
+
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model DownloadLog {
+  id           String               @id @default(uuid())
+  userId       String
+  resourceType DownloadResourceType
+  resourceId   String
+  ipAddress    String?
+  createdAt    DateTime             @default(now())
+
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

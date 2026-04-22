@@ -1,9 +1,9 @@
 /**
  * Platform Service
- * Handles creator platforms, revenue sharing, and platform-specific content
+ * Handles creator platform requests, approvals, ownership, and platform-specific content
  */
 
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient, PlatformStatus } from '@prisma/client'
 import { AppError } from '../../../utils/errors'
 import { logger } from '../../../utils/logger'
 import slugify from '../../../utils/slugify'
@@ -12,166 +12,199 @@ export class PlatformService {
   constructor(private prisma: PrismaClient) {}
 
   /**
-   * Create platform
+   * 1. Create Platform Request
+   * Initiates the workflow for a user attempting to establish a platform.
    */
-  async createPlatform(ownerId: string, data: { name: string; description: string; commissionRate: number }) {
-    const slug = slugify(data.name) + '-' + Date.now()
+  async createPlatformRequest(userId: string, data: { name: string; description?: string; notes?: string }) {
+    // Validate if user already has pending requests to prevent spam
+    const existingPending = await this.prisma.platformRequest.findFirst({
+      where: { userId, status: PlatformStatus.PENDING }
+    });
 
-    const platform = await this.prisma.platform.create({
+    if (existingPending) {
+      throw new AppError('You already have a pending platform request.', 400);
+    }
+
+    const request = await this.prisma.platformRequest.create({
       data: {
+        userId,
         name: data.name,
-        slug,
         description: data.description,
-        ownerId,
-        commissionRate: Math.min(50, Math.max(0, data.commissionRate)),
+        notes: data.notes,
+        status: PlatformStatus.PENDING,
       },
-    })
+    });
 
-    logger.info(`Platform created: ${platform.id} by ${ownerId}`)
-    return platform
+    logger.info(`Platform request created by User: ${userId}`);
+    return request;
   }
 
   /**
-   * Get all platforms
+   * 2. Admin Review Request
+   * Allows admins to approve or reject requests. Approved requests automatically provision a Platform constraint.
    */
-  async getPlatforms(limit = 20, offset = 0) {
-    const [platforms, total] = await Promise.all([
-      this.prisma.platform.findMany({
-        include: {
-          owner: { select: { id: true, username: true, profile: { select: { avatar: true } } } },
-          _count: { select: { courses: true } },
-        },
-        orderBy: { createdAt: 'desc' },
-        take: limit,
-        skip: offset,
+  async reviewPlatformRequest(adminId: string, requestId: string, action: 'APPROVE' | 'REJECT', notes?: string) {
+    const admin = await this.prisma.user.findUnique({ where: { id: adminId } });
+    if (!admin || admin.role !== 'ADMIN') {
+      throw new AppError('Only administrators can review platform requests', 403);
+    }
+
+    const request = await this.prisma.platformRequest.findUnique({ where: { id: requestId } });
+    if (!request) {
+      throw new AppError('Platform request not found', 404);
+    }
+
+    if (request.status !== PlatformStatus.PENDING) {
+      throw new AppError(`Request is already resolved (${request.status})`, 400);
+    }
+
+    if (action === 'REJECT') {
+      const rejected = await this.prisma.platformRequest.update({
+        where: { id: requestId },
+        data: { status: PlatformStatus.REJECTED, notes },
+      });
+      logger.info(`Platform request ${requestId} REJECTED by Admin ${adminId}`);
+      return rejected;
+    }
+
+    // action === 'APPROVE'
+    const slug = slugify(request.name) + '-' + Date.now();
+
+    // Transaction ensures Atomicity: We update the request AND manufacture the platform safely
+    const [approvedRequest, newPlatform] = await this.prisma.$transaction([
+      this.prisma.platformRequest.update({
+        where: { id: requestId },
+        data: { status: PlatformStatus.APPROVED, notes },
       }),
-      this.prisma.platform.count(),
-    ])
+      this.prisma.platform.create({
+        data: {
+          ownerId: request.userId,
+          name: request.name,
+          slug,
+          description: request.description,
+          status: PlatformStatus.APPROVED,
+          commissionRate: 0.08, // Business Rule Requirement: Platform 8%
+          settings: {
+            create: {
+              allowGuests: true
+            }
+          }
+        },
+      })
+    ]);
 
-    return { platforms, total }
+    // Backlink the tracking request to the actual platform created
+    await this.prisma.platformRequest.update({
+      where: { id: requestId },
+      data: { platformId: newPlatform.id }
+    });
+
+    logger.info(`Platform request ${requestId} APPROVED. Platform ${newPlatform.id} created.`);
+    return newPlatform;
   }
 
   /**
-   * Get platform details
+   * 3. Platform Dashboard Logic (Get specific platform)
+   * Retrieves data needed on the dashboard enforcing logic limits.
    */
-  async getPlatform(platformId: string) {
+  async getPlatformById(platformId: string) {
     const platform = await this.prisma.platform.findUnique({
       where: { id: platformId },
       include: {
-        owner: { select: { id: true, username: true, profile: { select: { avatar: true, bio: true } } } },
+        owner: { select: { id: true, username: true, email: true } },
+        settings: true,
         courses: {
-          include: {
-            instructor: { select: { username: true } },
-            _count: { select: { enrollments: true } },
-          },
+          select: {
+            id: true, title: true, price: true, status: true,
+            _count: { select: { enrollments: true } }
+          }
         },
         _count: { select: { courses: true } },
       },
-    })
+    });
 
     if (!platform) {
-      throw new AppError('Platform not found', 404)
+      throw new AppError('Platform not found', 404);
     }
 
-    return platform
+    // Revenue Placeholder logic explicitly tailored for Dashboard 
+    let aggregatedRevenue = 0;
+    const courseAnalytics = platform.courses.map((course) => {
+      // Future-proofed logic assuming raw math. A true app queries `Transaction` properly.
+      const rawRevenue = course.price * course._count.enrollments;
+      const netRevenue = rawRevenue - (rawRevenue * platform.commissionRate);
+      aggregatedRevenue += netRevenue;
+
+      return {
+        ...course,
+        metrics: {
+          rawRevenue,
+          netRevenue
+        }
+      };
+    });
+
+    return {
+      ...platform,
+      dashboard: {
+        totalNetRevenue: aggregatedRevenue,
+        courses: courseAnalytics
+      }
+    };
   }
 
   /**
-   * Update platform
+   * 4. Platform Ownership
+   * Validates & queries all platforms owned by the user.
    */
-  async updatePlatform(platformId: string, ownerId: string, data: Partial<any>) {
+  async getUserPlatforms(userId: string) {
+    return await this.prisma.platform.findMany({
+      where: { ownerId: userId },
+      include: {
+        settings: true,
+        _count: { select: { courses: true } }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+  }
+
+  /**
+   * 5. Platform Customization
+   * Strict update limits restricted by ownership validation.
+   */
+  async updatePlatform(platformId: string, ownerId: string, data: { name?: string, description?: string, colors?: any, template?: string }) {
     const platform = await this.prisma.platform.findUnique({ where: { id: platformId } })
-    if (!platform || platform.ownerId !== ownerId) {
-      throw new AppError('Not authorized', 403)
+    
+    if (!platform) {
+      throw new AppError('Platform not found', 404);
+    }
+    
+    // Validate Strict Ownership
+    if (platform.ownerId !== ownerId) {
+      throw new AppError('Unauthorized: You do not own this platform', 403);
     }
 
-    if (data.commissionRate) {
-      data.commissionRate = Math.min(50, Math.max(0, data.commissionRate))
+    // Build patch request carefully handling JSON colors and string templates
+    const patchData: any = {};
+    if (data.name) {
+      patchData.name = data.name;
+      // Re-slug mechanism if name differs
+      if (data.name !== platform.name) {
+        patchData.slug = slugify(data.name) + '-' + Date.now();
+      }
     }
+    if (data.description !== undefined) patchData.description = data.description;
+    if (data.colors !== undefined) patchData.colors = data.colors;
+    if (data.template !== undefined) patchData.template = data.template;
 
     const updated = await this.prisma.platform.update({
       where: { id: platformId },
-      data,
-    })
+      data: patchData,
+      include: { settings: true }
+    });
 
-    logger.info(`Platform updated: ${platformId}`)
-    return updated
-  }
-
-  /**
-   * Add course to platform (platform owner or course instructor)
-   */
-  async addCourse(platformId: string, courseId: string, ownerId: string) {
-    const platform = await this.prisma.platform.findUnique({ where: { id: platformId } })
-    if (!platform || platform.ownerId !== ownerId) {
-      throw new AppError('Not authorized', 403)
-    }
-
-    const course = await this.prisma.course.findUnique({ where: { id: courseId } })
-    if (!course) {
-      throw new AppError('Course not found', 404)
-    }
-
-    await this.prisma.course.update({
-      where: { id: courseId },
-      data: { platformId },
-    })
-
-    logger.info(`Course ${courseId} added to platform ${platformId}`)
-  }
-
-  /**
-   * Remove course from platform
-   */
-  async removeCourse(platformId: string, courseId: string, ownerId: string) {
-    const platform = await this.prisma.platform.findUnique({ where: { id: platformId } })
-    if (!platform || platform.ownerId !== ownerId) {
-      throw new AppError('Not authorized', 403)
-    }
-
-    await this.prisma.course.update({
-      where: { id: courseId },
-      data: { platformId: null },
-    })
-
-    logger.info(`Course ${courseId} removed from platform ${platformId}`)
-  }
-
-  /**
-   * Get platform revenue analytics
-   */
-  async getRevenue(platformId: string, ownerId: string) {
-    const platform = await this.prisma.platform.findUnique({ where: { id: platformId } })
-    if (!platform || platform.ownerId !== ownerId) {
-      throw new AppError('Not authorized', 403)
-    }
-
-    const courses = await this.prisma.course.findMany({
-      where: { platformId },
-      include: {
-        enrollments: true,
-        _count: { select: { enrollments: true } },
-      },
-    })
-
-    let totalRevenue = 0
-    const courseRevenue = courses.map((course) => {
-      const revenue = course.price * course._count.enrollments
-      totalRevenue += revenue
-      return {
-        courseId: course.id,
-        title: course.title,
-        enrollments: course._count.enrollments,
-        revenue,
-      }
-    })
-
-    return {
-      totalRevenue,
-      commissionRate: platform.commissionRate,
-      platformEarnings: (totalRevenue * platform.commissionRate) / 100,
-      creatorEarnings: totalRevenue - (totalRevenue * platform.commissionRate) / 100,
-      courses: courseRevenue,
-    }
+    logger.info(`Platform Customization updated: ${platformId} by Owner ${ownerId}`);
+    return updated;
   }
 }
+

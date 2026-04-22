@@ -14,7 +14,7 @@ export class BookController {
       const offset = parseInt(req.query.offset as string) || 0
       const filters = {
         search: req.query.search as string,
-        genre: req.query.genre as string,
+        tag: req.query.genre as string || req.query.tag as string,
         authorId: req.query.authorId as string,
       }
       const result = await this.bookService.getBooks(limit, offset, filters)
@@ -37,8 +37,9 @@ export class BookController {
   async createBook(req: Request, res: Response, next: NextFunction) {
     try {
       const authorId = req.user?.id!
-      const { title, description, genre, price } = req.body
-      const book = await this.bookService.createBook(authorId, { title, description, genre, price })
+      const { title, description, genre, tags, price, fileUrl } = req.body
+      const bookTags = tags || (genre ? [genre] : [])
+      const book = await this.bookService.createBook(authorId, { title, description, tags: bookTags, price, fileUrl })
       res.status(201).json(book)
     } catch (error) {
       next(error)

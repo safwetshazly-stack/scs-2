@@ -19,7 +19,7 @@ export class CourseController {
       const offset = parseInt(req.query.offset as string) || 0
       const filters = {
         search: req.query.search as string,
-        category: req.query.category as string,
+        tag: req.query.category as string || req.query.tag as string,
         level: req.query.level as string,
         instructorId: req.query.instructorId as string,
       }
