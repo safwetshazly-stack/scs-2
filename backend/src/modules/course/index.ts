@@ -9,6 +9,8 @@
  * - Student enrollment
  * - Progress tracking
  * - Course reviews
+ * - Library management
+ * - Download tokens
  *
  * Dependencies:
  * - Auth Module (for authentication)
@@ -24,6 +26,7 @@
  */
 
 export { CourseService } from './services/course.service'
+export { LibraryService } from './services/library.service'
+export { DownloadService } from './services/download.service'
 export { CourseController } from './controllers/course.controller'
 export { createCourseRoutes } from './routes/course.routes'
-export type { Course, Lesson, Enrollment } from './types'

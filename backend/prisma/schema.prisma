@@ -157,6 +157,34 @@ enum ReportReason {
   OTHER
 }
 
+// ─── SECURITY ─────────────────────────────────────────────
+enum AuditAction {
+  LOGIN
+  LOGOUT
+  DOWNLOAD
+  PURCHASE
+  STREAM
+  AI_USAGE
+  DEVICE_ADDED
+  DEVICE_REMOVED
+  DEVICE_TRUSTED
+  SUBSCRIPTION_CHANGE
+  REFUND_INITIATED
+  ACCOUNT_CHANGE
+}
+
+enum SecurityAlertType {
+  SUSPICIOUS_LOGIN
+  IMPOSSIBLE_TRAVEL
+  MULTIPLE_IPS
+  CONCURRENT_STREAMS
+  RAPID_DOWNLOADS
+  RAPID_PURCHASES
+  RAPID_TOKEN_GENERATION
+  ABNORMAL_PATTERN
+  FRAUD_DETECTED
+}
+
 // ─── USERS ────────────────────────────────────────────────
 model User {
   id                String    @id @default(uuid())
@@ -235,6 +263,10 @@ model User {
   library           UserLibrary?
   downloadTokens    DownloadToken[]
   downloadLogs      DownloadLog[]
+
+  devices           Device[]
+  auditLogs         AuditLog[]
+  securityLogs      SecurityLog[]
 
   @@index([email])
   @@index([username])
@@ -1253,4 +1285,78 @@ model DownloadLog {
   createdAt    DateTime             @default(now())
 
   user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─── SECURITY MODELS ──────────────────────────────────────
+
+model Device {
+  id                 String   @id @default(uuid())
+  userId             String
+  deviceFingerprint  String   @unique
+  deviceName         String
+  ipAddress          String
+  userAgent          String?
+  lastActiveAt       DateTime
+  isTrusted          Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  streamingTokens    StreamingToken[]
+
+  @@index([userId])
+  @@index([deviceFingerprint])
+  @@index([lastActiveAt])
+}
+
+model StreamingToken {
+  id          String   @id @default(uuid())
+  userId      String
+  deviceId    String
+  resourceId  String
+  token       String   @unique
+  expiresAt   DateTime
+  isValid     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  device      Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@index([deviceId])
+  @@index([expiresAt])
+}
+
+model SecurityLog {
+  id          String               @id @default(uuid())
+  userId      String
+  alertType   SecurityAlertType
+  ipAddress   String?
+  deviceId    String?
+  metadata    Json?
+  riskScore   Int      @default(0)
+  isResolved  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([alertType])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id          String       @id @default(uuid())
+  userId      String
+  action      AuditAction
+  metadata    Json?
+  ipAddress   String?
+  deviceId    String?
+  createdAt   DateTime     @default(now())
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
 }

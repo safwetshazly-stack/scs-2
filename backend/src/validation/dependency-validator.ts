@@ -134,7 +134,7 @@ function analyzeDirectory(dirPath: string, baseModule: string): void {
     .filter(f => typeof f === 'string' && f.endsWith('.ts'))
 
   for (const file of files) {
-    const filePath = path.join(dirPath, file)
+    const filePath = path.join(dirPath, file as string)
     const content = fs.readFileSync(filePath, 'utf-8')
     const imports = extractImports(content)
     const violations: string[] = []

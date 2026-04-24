@@ -65,27 +65,4 @@ export class ChatController {
       next(error)
     }
   }
-
-  async getNotifications(req: Request, res: Response, next: NextFunction) {
-    try {
-      const userId = req.user?.id!
-      const limit = parseInt(req.query.limit as string) || 20
-      const offset = parseInt(req.query.offset as string) || 0
-      const unreadOnly = req.query.unreadOnly === 'true'
-      const result = await this.chatService.getNotifications(userId, limit, offset, unreadOnly)
-      res.json(result)
-    } catch (error) {
-      next(error)
-    }
-  }
-
-  async markNotificationAsRead(req: Request, res: Response, next: NextFunction) {
-    try {
-      const { notificationId } = req.params
-      await this.chatService.markNotificationAsRead(notificationId)
-      res.json({ message: 'Marked as read' })
-    } catch (error) {
-      next(error)
-    }
-  }
 }

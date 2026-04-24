@@ -23,10 +23,16 @@ export function createCommunityRoutes(prisma: PrismaClient): Router {
   router.post('/:id/join', authenticate, (req, res, next) => communityController.joinCommunity(req, res, next))
   router.delete('/:id/leave', authenticate, (req, res, next) => communityController.leaveCommunity(req, res, next))
 
-  router.get('/:id/discussions', (req, res, next) => communityController.getDiscussions(req, res, next))
-  router.post('/:id/discussions', authenticate, (req, res, next) => communityController.createDiscussion(req, res, next))
+  router.get('/:id', (req, res, next) => communityController.getCommunity(req, res, next))
+  router.put('/:id', authenticate, (req, res, next) => communityController.updateCommunity(req, res, next))
 
-  router.post('/:id/discussions/:discussionId/replies', authenticate, (req, res, next) => communityController.replyDiscussion(req, res, next))
+  router.get('/:id/posts', (req, res, next) => communityController.getPosts(req, res, next))
+  router.post('/:id/posts', authenticate, (req, res, next) => communityController.createPost(req, res, next))
+
+  router.post('/:postId/comments', authenticate, (req, res, next) => communityController.commentOnPost(req, res, next))
+  router.post('/:postId/like', authenticate, (req, res, next) => communityController.likePost(req, res, next))
+  router.delete('/:postId/unlike', authenticate, (req, res, next) => communityController.unlikePost(req, res, next))
+  router.delete('/:postId', authenticate, (req, res, next) => communityController.deletePost(req, res, next))
 
   return router
 }

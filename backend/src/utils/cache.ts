@@ -1,4 +1,4 @@
-import { redis } from '../server'
+import { redis } from '../shared/database/redis'
 
 export const cache = {
   get: async <T>(key: string): Promise<T | null> => {

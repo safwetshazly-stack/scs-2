@@ -1,6 +1,7 @@
 import { Server, Socket } from 'socket.io'
 import jwt from 'jsonwebtoken'
-import { prisma, redis } from '../server'
+import { prisma } from '../shared/database/prisma'
+import { redis } from '../shared/database/redis'
 import { env } from '../config/env'
 import { logger } from './logger'
 

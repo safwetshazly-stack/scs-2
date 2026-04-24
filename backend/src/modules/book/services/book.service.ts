@@ -207,4 +207,140 @@ export class BookService {
 
     return { books, total }
   }
+
+  /**
+   * Create new version of book
+   */
+  async createVersion(bookId: string, authorId: string, newFileUrl: string) {
+    const book = await this.prisma.book.findUnique({ where: { id: bookId } })
+    if (!book || book.authorId !== authorId) {
+      throw new AppError('Not authorized', 403)
+    }
+
+    // Store version info in tags
+    const versionTag = `version:${Date.now()}`
+    const oldTags = book.tags || []
+    const newTags = [...oldTags, versionTag]
+
+    const updated = await this.prisma.book.update({
+      where: { id: bookId },
+      data: {
+        fileUrl: newFileUrl,
+        tags: newTags,
+      },
+    })
+
+    logger.info(`New version created: ${bookId} - ${versionTag}`)
+    return updated
+  }
+
+  /**
+   * Add part to book
+   */
+  async addPart(bookId: string, authorId: string, partName: string, startPage: number, endPage: number) {
+    const book = await this.prisma.book.findUnique({ where: { id: bookId } })
+    if (!book || book.authorId !== authorId) {
+      throw new AppError('Not authorized', 403)
+    }
+
+    const partTag = `part:${partName}:${startPage}-${endPage}`
+    const oldTags = book.tags || []
+    const newTags = [...oldTags, partTag]
+
+    await this.prisma.book.update({
+      where: { id: bookId },
+      data: { tags: newTags },
+    })
+
+    logger.info(`Part added: ${bookId} - ${partName} (${startPage}-${endPage})`)
+
+    return {
+      name: partName,
+      startPage,
+      endPage,
+    }
+  }
+
+  /**
+   * Enable preview access for book
+   */
+  async enablePreview(bookId: string, authorId: string, previewPages: number = 10) {
+    const book = await this.prisma.book.findUnique({ where: { id: bookId } })
+    if (!book || book.authorId !== authorId) {
+      throw new AppError('Not authorized', 403)
+    }
+
+    const oldTags = book.tags || []
+    const newTags = oldTags.filter((tag) => !tag.startsWith('preview:'))
+    newTags.push(`preview:${previewPages}`)
+
+    await this.prisma.book.update({
+      where: { id: bookId },
+      data: { tags: newTags },
+    })
+
+    logger.info(`Preview enabled: ${bookId} - ${previewPages} pages`)
+
+    return { bookId, previewPages }
+  }
+
+  /**
+   * Get preview access info
+   */
+  getPreviewInfo(book: any): { hasPreview: boolean; previewPages: number } {
+    const previewTag = book.tags?.find((tag: string) => tag.startsWith('preview:'))
+    if (!previewTag) {
+      return { hasPreview: false, previewPages: 0 }
+    }
+
+    const pages = parseInt(previewTag.replace('preview:', ''))
+    return { hasPreview: true, previewPages: pages }
+  }
+
+  /**
+   * Check if user can access full book
+   */
+  async checkFullAccess(bookId: string, userId: string): Promise<boolean> {
+    const purchase = await this.prisma.bookPurchase.findFirst({
+      where: { bookId, userId },
+    })
+
+    return !!purchase
+  }
+
+  /**
+   * Get book parts
+   */
+  getParts(book: any): Array<{ name: string; startPage: number; endPage: number }> {
+    const parts: Array<{ name: string; startPage: number; endPage: number }> = []
+
+    const partTags = book.tags?.filter((tag: string) => tag.startsWith('part:')) || []
+
+    for (const tag of partTags) {
+      const [_, name, pages] = tag.split(':')
+      const [startPage, endPage] = pages.split('-').map(Number)
+      parts.push({ name, startPage, endPage })
+    }
+
+    return parts
+  }
+
+  /**
+   * Get book versions
+   */
+  getVersions(book: any): Array<{ versionId: string; createdAt: string }> {
+    const versions: Array<{ versionId: string; createdAt: string }> = []
+
+    const versionTags = book.tags?.filter((tag: string) => tag.startsWith('version:')) || []
+
+    for (const tag of versionTags) {
+      const versionId = tag.replace('version:', '')
+      versions.push({
+        versionId,
+        createdAt: new Date(parseInt(versionId)).toISOString(),
+      })
+    }
+
+    return versions.reverse()
+  }
 }

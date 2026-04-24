@@ -9,7 +9,7 @@
  */
 
 import { createClient } from 'redis'
-import { env } from '../config/env'
+import { env } from '../../config/env'
 
 export type RedisClient = ReturnType<typeof createClient>
 

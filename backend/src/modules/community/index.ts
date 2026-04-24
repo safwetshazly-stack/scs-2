@@ -17,4 +17,3 @@
 export { CommunityService } from './services/community.service'
 export { CommunityController } from './controllers/community.controller'
 export { createCommunityRoutes } from './routes/community.routes'
-export type { Community, Post, Channel } from './types'

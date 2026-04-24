@@ -298,4 +298,79 @@ export class PaymentService {
 
     logger.info(`Subscription cancelled: ${userId}`)
   }
+
+  /**
+   * Calculate commission based on transaction type
+   */
+  calculateCommission(type: string, amount: number): { rate: number; amount: number } {
+    let rate = 0
+
+    if (type === 'COURSE_PURCHASE') {
+      rate = 0.13 // 13%
+    } else if (type === 'BOOK_PURCHASE') {
+      rate = 0.2 // 20%
+    } else if (type === 'PLATFORM_SUBSCRIPTION') {
+      rate = 0.08 // 8%
+    } else {
+      rate = 0.15 // default 15%
+    }
+
+    const commissionAmount = amount * rate
+    return { rate, amount: commissionAmount }
+  }
+
+  /**
+   * Create Transaction (for orchestrators)
+   * Used by purchase orchestrators to create transaction records
+   */
+  async createTransaction(paymentId: string, type: string, referenceId: string, description: string, amount: number) {
+    const payment = await this.prisma.payment.findUnique({ where: { id: paymentId } })
+    if (!payment) {
+      throw new AppError('Payment not found', 404)
+    }
+
+    // Import TransactionType
+    const TransactionType = require('@prisma/client').TransactionType
+
+    const transaction = await this.prisma.transaction.create({
+      data: {
+        paymentId,
+        type: TransactionType.PURCHASE,
+        referenceId,
+        description,
+        amount,
+      },
+    })
+
+    logger.info(`Transaction created: ${transaction.id} - ${description}`)
+    return transaction
+  }
+
+  /**
+   * Record commission for transaction
+   */
+  async recordCommission(transactionId: string, type: string, amount: number) {
+    const transaction = await this.prisma.transaction.findUnique({
+      where: { id: transactionId },
+    })
+
+    if (!transaction) {
+      throw new AppError('Transaction not found', 404)
+    }
+
+    const commission = this.calculateCommission(type, amount)
+
+    await this.prisma.commission.create({
+      data: {
+        transactionId,
+        rate: commission.rate,
+        amount: commission.amount,
+        description: `Commission for ${type}`,
+      },
+    })
+
+    logger.info(`Commission recorded: ${transactionId} - ${commission.amount} (${commission.rate * 100}%)`)
+
+    return commission
+  }
 }

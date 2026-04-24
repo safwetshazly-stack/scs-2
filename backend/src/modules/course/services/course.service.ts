@@ -262,4 +262,167 @@ export class CourseService {
     logger.info(`Review added: ${courseId} by ${userId}`)
     return review
   }
+
+  /**
+   * Add section to course
+   */
+  async addSection(courseId: string, instructorId: string, title: string, description?: string, position: number = 0) {
+    const course = await this.prisma.course.findUnique({ where: { id: courseId } })
+    if (!course || course.instructorId !== instructorId) {
+      throw new AppError('Not authorized', 403)
+    }
+
+    const module = await this.prisma.courseModule.create({
+      data: {
+        courseId,
+        title,
+        description,
+        position,
+      },
+    })
+
+    logger.info(`Section added: ${courseId} - ${module.id}`)
+    return module
+  }
+
+  /**
+   * Add video to section
+   */
+  async addVideo(sectionId: string, courseId: string, instructorId: string, title: string, videoUrl: string, duration: number = 0) {
+    const section = await this.prisma.courseModule.findUnique({
+      where: { id: sectionId },
+      include: { course: true },
+    })
+    if (!section || section.course.instructorId !== instructorId) {
+      throw new AppError('Not authorized', 403)
+    }
+
+    const lesson = await this.prisma.courseLesson.create({
+      data: {
+        moduleId: sectionId,
+        title,
+        videoUrl,
+        duration,
+      },
+    })
+
+    const video = await this.prisma.video.create({
+      data: {
+        lessonId: lesson.id,
+        rawUrl: videoUrl,
+        status: 'READY',
+        duration,
+      },
+    })
+
+    logger.info(`Video added: ${lesson.id} - ${video.id}`)
+    return { lesson, video }
+  }
+
+  /**
+   * Add attachment to lesson
+   */
+  async addAttachment(lessonId: string, courseId: string, instructorId: string, title: string, fileUrl: string, type: string = 'OTHER', sizeBytes: number = 0) {
+    const lesson = await this.prisma.courseLesson.findUnique({
+      where: { id: lessonId },
+      include: { module: { include: { course: true } } },
+    })
+    if (!lesson || lesson.module.course.instructorId !== instructorId) {
+      throw new AppError('Not authorized', 403)
+    }
+
+    const attachment = await this.prisma.lessonAttachment.create({
+      data: {
+        lessonId,
+        title,
+        fileUrl,
+        type: type as any,
+        sizeBytes,
+      },
+    })
+
+    logger.info(`Attachment added: ${lessonId} - ${attachment.id}`)
+    return attachment
+  }
+
+  /**
+   * Link prerequisite course
+   */
+  async linkPrerequisite(courseId: string, prerequisiteCourseId: string, instructorId: string) {
+    const course = await this.prisma.course.findUnique({ where: { id: courseId } })
+    if (!course || course.instructorId !== instructorId) {
+      throw new AppError('Not authorized', 403)
+    }
+
+    const prereqCourse = await this.prisma.course.findUnique({ where: { id: prerequisiteCourseId } })
+    if (!prereqCourse) {
+      throw new AppError('Prerequisite course not found', 404)
+    }
+
+    // Store in course tags or metadata
+    if (!course.tags) course.tags = []
+    if (!course.tags.includes(`prereq:${prerequisiteCourseId}`)) {
+      course.tags.push(`prereq:${prerequisiteCourseId}`)
+    }
+
+    await this.prisma.course.update({
+      where: { id: courseId },
+      data: { tags: course.tags },
+    })
+
+    logger.info(`Prerequisite linked: ${courseId} -> ${prerequisiteCourseId}`)
+    return course
+  }
+
+  /**
+   * Get course with full structure (sections, videos, attachments)
+   */
+  async getCourseFull(courseId: string) {
+    const course = await this.prisma.course.findUnique({
+      where: { id: courseId },
+      include: {
+        instructor: { select: { id: true, username: true, profile: { select: { avatar: true, bio: true } } } },
+        modules: {
+          orderBy: { position: 'asc' },
+          include: {
+            lessons: {
+              orderBy: { position: 'asc' },
+              include: {
+                videos: true,
+                attachments: true,
+              },
+            },
+          },
+        },
+        _count: { select: { enrollments: true, reviews: true } },
+      },
+    })
+
+    if (!course) {
+      throw new AppError('Course not found', 404)
+    }
+
+    return course
+  }
+
+  /**
+   * Check if user meets prerequisites
+   */
+  async checkPrerequisites(courseId: string, userId: string): Promise<boolean> {
+    const course = await this.prisma.course.findUnique({ where: { id: courseId } })
+    if (!course) return false
+
+    const prereqs = course.tags?.filter((tag) => tag.startsWith('prereq:')) || []
+    if (prereqs.length === 0) return true
+
+    for (const prereq of prereqs) {
+      const prereqId = prereq.replace('prereq:', '')
+      const completed = await this.prisma.courseEnrollment.findFirst({
+        where: { courseId: prereqId, userId, completedAt: { not: null } },
+      })
+      if (!completed) return false
+    }
+
+    return true
+  }
 }

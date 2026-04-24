@@ -20,4 +20,3 @@
 export { AdminService } from './services/admin.service'
 export { AdminController } from './controllers/admin.controller'
 export { createAdminRoutes } from './routes/admin.routes'
-export type { SystemStats, AdminAction } from './types'

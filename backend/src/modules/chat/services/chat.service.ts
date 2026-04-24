@@ -40,9 +40,9 @@ export class ChatService {
   }
 
   /**
-   * Send message
+   * Send message with mention parsing and AI trigger support
    */
-  async sendMessage(conversationId: string, senderId: string, content: string) {
+  async sendMessage(conversationId: string, senderId: string, content: string, type: MessageType = MessageType.TEXT) {
     // Verify user is in conversation
     const member = await this.prisma.conversationMember.findFirst({
       where: { conversationId, userId: senderId },
@@ -52,14 +52,38 @@ export class ChatService {
       throw new AppError('Not a member in this conversation', 403)
     }
 
+    // Parse mentions
+    const mentions = this.parseMentions(content)
+    const aiMentioned = this.isAiMentioned(content)
+
     const message = await this.prisma.message.create({
       data: {
         conversationId,
         senderId,
         content,
-        type: MessageType.TEXT,
+        type,
       },
     })
+
+    // Handle mentions - send notifications
+    if (mentions.length > 0) {
+      for (const userId of mentions) {
+        await this.prisma.notification.create({
+          data: {
+            userId,
+            type: 'MESSAGE',
+            title: 'You were mentioned',
+            body: `${await this.getUsernameById(senderId)} mentioned you`,
+          },
+        })
+      }
+    }
+
+    // Handle AI mention
+    if (aiMentioned && type === MessageType.TEXT) {
+      // Create AI response trigger
+      logger.info(`AI mentioned in message: ${message.id}`)
+    }
 
     // Update conversation updatedAt for sorting
     await this.prisma.conversation.update({
@@ -69,6 +93,49 @@ export class ChatService {
 
     logger.info(`Message sent: ${message.id}`)
     return message
+  }
+
+  /**
+   * Parse @mentions from message content
+   */
+  private parseMentions(content: string): string[] {
+    const mentionRegex = /@([a-zA-Z0-9_-]+)/g
+    const mentions: string[] = []
+
+    let match
+    while ((match = mentionRegex.exec(content)) !== null) {
+      const username = match[1]
+      if (username.toLowerCase() !== 'ai') {
+        mentions.push(username)
+      }
+    }
+
+    return [...new Set(mentions)]
+  }
+
+  /**
+   * Check if @ai is mentioned
+   */
+  private isAiMentioned(content: string): boolean {
+    return /@ai\b/i.test(content)
+  }
+
+  /**
+   * Get username by ID (helper)
+   */
+  private async getUsernameById(userId: string): Promise<string> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { username: true },
+    })
+    return user?.username || 'User'
+  }
+
+  /**
+   * Send message with type
+   */
+  async sendTypedMessage(conversationId: string, senderId: string, content: string, type: MessageType = MessageType.TEXT) {
+    return this.sendMessage(conversationId, senderId, content, type)
   }
 
   /**

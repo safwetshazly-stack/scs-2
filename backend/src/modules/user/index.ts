@@ -20,7 +20,3 @@
 export { UserService } from './services/user.service'
 export { UserController } from './controllers/user.controller'
 export { createUserRoutes } from './routes/user.routes'
-export type * from './types'
-export type { UserProfile, UserSettings } from './types'
-export { UserService } from './services/user.service'
-export { UserController } from './controllers/user.controller'

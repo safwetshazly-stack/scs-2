@@ -28,4 +28,3 @@
 export { PaymentService } from './services/payment.service'
 export { PaymentController } from './controllers/payment.controller'
 export { createPaymentRoutes } from './routes/payment.routes'
-export type { PaymentIntent, Subscription } from './types'

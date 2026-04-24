@@ -25,8 +25,5 @@ export function createChatRoutes(prisma: PrismaClient): Router {
 
   router.put('/messages/:messageId/read', authenticate, (req, res, next) => chatController.markAsRead(req, res, next))
 
-  router.get('/notifications', authenticate, (req, res, next) => chatController.getNotifications(req, res, next))
-  router.put('/notifications/:notificationId/read', authenticate, (req, res, next) => chatController.markNotificationAsRead(req, res, next))
-
   return router
 }

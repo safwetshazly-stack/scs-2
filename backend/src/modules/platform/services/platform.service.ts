@@ -206,5 +206,158 @@ export class PlatformService {
     logger.info(`Platform Customization updated: ${platformId} by Owner ${ownerId}`);
     return updated;
   }
+
+  /**
+   * 6. Create Platform (API endpoint method)
+   * Aliases createPlatformRequest for API compatibility
+   */
+  async createPlatform(ownerId: string, data: { name: string; description?: string; commissionRate?: number }) {
+    return this.createPlatformRequest(ownerId, data);
+  }
+
+  /**
+   * 7. Get Platforms (paginated list)
+   * Returns all active platforms with pagination
+   */
+  async getPlatforms(limit: number = 20, offset: number = 0) {
+    const platforms = await this.prisma.platform.findMany({
+      where: { status: PlatformStatus.APPROVED },
+      include: {
+        owner: { select: { id: true, username: true } },
+        settings: true,
+        _count: { select: { courses: true } }
+      },
+      take: limit,
+      skip: offset,
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const total = await this.prisma.platform.count({
+      where: { status: PlatformStatus.APPROVED }
+    });
+
+    return { data: platforms, total, limit, offset };
+  }
+
+  /**
+   * 8. Get Platform (single platform by ID)
+   * Aliases getPlatformById for API compatibility
+   */
+  async getPlatform(platformId: string) {
+    return this.getPlatformById(platformId);
+  }
+
+  /**
+   * 9. Request to Join Platform
+   * Creates a join request for a user wanting to access a platform
+   */
+  async requestJoin(platformId: string, userId: string) {
+    const platform = await this.prisma.platform.findUnique({ where: { id: platformId } });
+    if (!platform) {
+      throw new AppError('Platform not found', 404);
+    }
+
+    // Check if user already has a pending request
+    const existingRequest = await this.prisma.platformRequest.findFirst({
+      where: { platformId, userId, status: PlatformStatus.PENDING }
+    });
+
+    if (existingRequest) {
+      throw new AppError('You already have a pending request for this platform', 400);
+    }
+
+    const request = await this.prisma.platformRequest.create({
+      data: {
+        userId,
+        platformId,
+        name: platform.name,
+        status: PlatformStatus.PENDING,
+      },
+    });
+
+    logger.info(`User ${userId} requested to join platform ${platformId}`);
+    return request;
+  }
+
+  /**
+   * 10. Approve Join Request
+   * Admin/Platform owner approves a join request
+   */
+  async approveJoinRequest(requestId: string, ownerId: string) {
+    const request = await this.prisma.platformRequest.findUnique({ where: { id: requestId } });
+    if (!request) {
+      throw new AppError('Platform request not found', 404);
+    }
+
+    // Verify owner/admin
+    const user = await this.prisma.user.findUnique({ where: { id: ownerId } });
+    if (!user || (user.role !== 'ADMIN' && user.id !== request.userId)) {
+      throw new AppError('Unauthorized to approve this request', 403);
+    }
+
+    const updated = await this.prisma.platformRequest.update({
+      where: { id: requestId },
+      data: { status: PlatformStatus.APPROVED }
+    });
+
+    logger.info(`Join request ${requestId} approved by ${ownerId}`);
+    return updated;
+  }
+
+  /**
+   * 11. Get Revenue Analytics
+   * Returns platform revenue and analytics for the owner
+   */
+  async getRevenue(platformId: string, ownerId: string) {
+    const platform = await this.prisma.platform.findUnique({
+      where: { id: platformId },
+      include: {
+        courses: {
+          select: {
+            id: true,
+            title: true,
+            price: true,
+            _count: { select: { enrollments: true } }
+          }
+        }
+      }
+    });
+
+    if (!platform) {
+      throw new AppError('Platform not found', 404);
+    }
+
+    // Verify ownership
+    if (platform.ownerId !== ownerId) {
+      throw new AppError('Unauthorized: You do not own this platform', 403);
+    }
+
+    let totalRevenue = 0;
+    let totalNetRevenue = 0;
+
+    const courseBreakdown = platform.courses.map((course) => {
+      const revenue = course.price * course._count.enrollments;
+      const netRevenue = revenue * (1 - platform.commissionRate);
+      totalRevenue += revenue;
+      totalNetRevenue += netRevenue;
+
+      return {
+        courseId: course.id,
+        courseName: course.title,
+        enrollments: course._count.enrollments,
+        price: course.price,
+        revenue,
+        netRevenue
+      };
+    });
+
+    return {
+      platformId,
+      totalRevenue,
+      totalNetRevenue,
+      commissionRate: platform.commissionRate,
+      courses: courseBreakdown
+    };
+  }
 }
 

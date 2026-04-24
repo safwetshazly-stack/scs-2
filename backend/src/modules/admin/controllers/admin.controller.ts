@@ -80,8 +80,8 @@ export class AdminController {
       await this.adminService.requireAdmin(userId)
       const limit = parseInt(req.query.limit as string) || 20
       const offset = parseInt(req.query.offset as string) || 0
-      const status = req.query.status as string
-      const result = await this.adminService.getReports(limit, offset, status)
+      const resolved = req.query.resolved === 'true' ? true : req.query.resolved === 'false' ? false : false
+      const result = await this.adminService.getReports(limit, offset, resolved)
       res.json(result)
     } catch (error) {
       next(error)

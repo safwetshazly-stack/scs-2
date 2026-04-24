@@ -23,6 +23,3 @@
 export { BookService } from './services/book.service'
 export { BookController } from './controllers/book.controller'
 export { createBookRoutes } from './routes/book.routes'
-export type { Book, Purchase, Review } from './types'
-export { BookController } from './controllers/book.controller'
-export { BookEvent } from './events/book.events'

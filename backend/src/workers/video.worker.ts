@@ -1,5 +1,6 @@
 import { Worker, Job } from 'bullmq'
-import { redis, prisma } from '../server'
+import { redis } from '../shared/database/redis'
+import { prisma } from '../shared/database/prisma'
 import { logger } from '../utils/logger'
 
 export const startVideoWorker = () => {

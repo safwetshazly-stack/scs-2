@@ -24,7 +24,3 @@
 export { AiService } from './services/ai.service'
 export { AiController } from './controllers/ai.controller'
 export { createAiRoutes } from './routes/ai.routes'
-export type { AiConversation, AiMessage } from './types'
-export { AiService } from './services/ai.service'
-export { AiController } from './controllers/ai.controller'
-export { AiEvent } from './events/ai.events'

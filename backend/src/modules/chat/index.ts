@@ -21,4 +21,3 @@
 export { ChatService } from './services/chat.service'
 export { ChatController } from './controllers/chat.controller'
 export { createChatRoutes } from './routes/chat.routes'
-export type { Message, Conversation } from './types'

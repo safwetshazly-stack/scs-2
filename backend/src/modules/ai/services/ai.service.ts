@@ -7,6 +7,7 @@ import { PrismaClient } from '@prisma/client'
 import { RedisClient } from '../../../shared/database/redis'
 import { AppError } from '../../../utils/errors'
 import { logger } from '../../../utils/logger'
+import { SubscriptionService } from '../../subscription/services/subscription.service'
 
 // Default limits (could be moved to config/subscription plan)
 const DEFAULT_TOKEN_LIMIT = 100000
@@ -15,13 +16,24 @@ const DEFAULT_REQUEST_LIMIT = 500
 export class AiService {
   constructor(
     private prisma: PrismaClient,
-    private redis: RedisClient
+    private redis: RedisClient,
+    private subscriptionService: SubscriptionService
   ) {}
 
   /**
-   * Check AI usage limits
+   * Check AI usage limits against subscription tier
    */
   async checkUsageLimit(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    })
+
+    if (!user) {
+      throw new AppError('User not found', 404)
+    }
+
+    // Get subscription limits
+    const limits = this.subscriptionService.getLimits(user.subscriptionTier)
     const usage = await this.prisma.aiUsage.findUnique({
       where: { userId },
     })
@@ -43,13 +55,13 @@ export class AiService {
 
       return {
         canUse: true,
-        tokensRemaining: DEFAULT_TOKEN_LIMIT,
-        requestsRemaining: DEFAULT_REQUEST_LIMIT,
+        tokensRemaining: limits.aiTokensPerRequest,
+        requestsRemaining: limits.aiMonthlyRequests,
       }
     }
 
-    const tokensRemaining = DEFAULT_TOKEN_LIMIT - usage.tokensUsed
-    const requestsRemaining = DEFAULT_REQUEST_LIMIT - usage.requestCount
+    const tokensRemaining = limits.aiTokensPerRequest - usage.tokensUsed
+    const requestsRemaining = limits.aiMonthlyRequests - usage.requestCount
 
     return {
       canUse: tokensRemaining > 0 && requestsRemaining > 0,
@@ -59,9 +71,47 @@ export class AiService {
   }
 
   /**
-   * Record AI usage
+   * Check and enforce AI limits before request
+   */
+  async enforceAiLimit(userId: string) {
+    const canUse = await this.subscriptionService.enforceLimits(userId, 'ai_request')
+    if (!canUse) {
+      throw new AppError('AI usage limit exceeded. Please upgrade your plan.', 429)
+    }
+  }
+
+  /**
+   * Record AI usage with token count
    */
   async recordUsage(userId: string, tokensUsed: number) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } })
+    if (!user) {
+      throw new AppError('User not found', 404)
+    }
+
+    const limits = this.subscriptionService.getLimits(user.subscriptionTier)
+
+    // Check if usage exceeds limits
+    let usage = await this.prisma.aiUsage.findUnique({
+      where: { userId },
+    })
+
+    if (!usage) {
+      usage = await this.prisma.aiUsage.create({
+        data: {
+          userId,
+          tokensUsed: 0,
+          requestCount: 0,
+          resetAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        },
+      })
+    }
+
+    // Check limit
+    if (usage.tokensUsed + tokensUsed > limits.aiTokensPerRequest) {
+      throw new AppError('Would exceed AI token limit for this period', 429)
+    }
+
     await this.prisma.aiUsage.update({
       where: { userId },
       data: {
@@ -187,5 +237,50 @@ export class AiService {
     }
 
     return []
+  }
+
+  /**
+   * Process AI request (mock implementation)
+   * In production, this would call OpenAI, Claude, or other AI provider
+   */
+  async processRequest(userId: string, prompt: string, tokensAllocated: number) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } })
+    if (!user) {
+      throw new AppError('User not found', 404)
+    }
+
+    // Mock AI response generation
+    // In production, this would call the actual AI API
+    const mockResponses: Record<string, string> = {
+      course: 'I recommend learning fundamental concepts first before diving into advanced topics.',
+      book: 'Consider reading classic texts to build strong foundational knowledge.',
+      study: 'Structured learning paths with consistent practice yield the best results.',
+      default: 'Thank you for your question. I would need more context to provide a helpful response.',
+    }
+
+    // Simple keyword matching for mock response
+    let response = mockResponses.default
+    for (const [key, value] of Object.entries(mockResponses)) {
+      if (prompt.toLowerCase().includes(key)) {
+        response = value
+        break
+      }
+    }
+
+    // Save to history
+    await this.saveRequest(userId, {
+      request: prompt,
+      response,
+      provider: 'mock',
+      tokensUsed: Math.min(tokensAllocated, Math.ceil(prompt.length / 4)),
+    })
+
+    logger.info(`AI request processed: ${userId} - Tokens used: ${tokensAllocated}`)
+
+    return {
+      response,
+      tokensUsed: Math.min(tokensAllocated, Math.ceil(prompt.length / 4)),
+      model: 'mock-ai-model',
+    }
   }
 }

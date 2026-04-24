@@ -1,0 +1,94 @@
+
+> scs-platform-backend@1.0.0 build
+> tsc
+
+src/modules/admin/controllers/admin.controller.ts(84,72): error TS2345: Argument of type 'string' is not assignable to parameter of type 'boolean | undefined'.
+src/modules/admin/index.ts(23,47): error TS2307: Cannot find module './types' or its corresponding type declarations.
+src/modules/admin/services/admin.service.ts(312,39): error TS2339: Property 'platformRequest' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/modules/admin/services/admin.service.ts(320,16): error TS2339: Property 'platformRequest' does not exist on type 'Omit<PrismaClient<PrismaClientOptions, never, DefaultArgs>, "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends">'.
+src/modules/admin/services/admin.service.ts(331,11): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type '(Without<PlatformCreateInput, PlatformUncheckedCreateInput> & PlatformUncheckedCreateInput) | (Without<...> & PlatformCreateInput)'.
+src/modules/admin/services/admin.service.ts(352,39): error TS2339: Property 'platformRequest' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/modules/admin/services/admin.service.ts(359,23): error TS2339: Property 'platformRequest' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/modules/admin/services/admin.service.ts(400,9): error TS2353: Object literal may only specify known properties, and '_count' does not exist in type 'LoginAttemptScalarWhereWithAggregatesInput'.
+src/modules/admin/services/admin.service.ts(429,9): error TS2353: Object literal may only specify known properties, and '_count' does not exist in type 'ActivityLogScalarWhereWithAggregatesInput'.
+src/modules/ai/index.ts(24,10): error TS2300: Duplicate identifier 'AiService'.
+src/modules/ai/index.ts(25,10): error TS2300: Duplicate identifier 'AiController'.
+src/modules/ai/index.ts(27,48): error TS2307: Cannot find module './types' or its corresponding type declarations.
+src/modules/ai/index.ts(28,10): error TS2300: Duplicate identifier 'AiService'.
+src/modules/ai/index.ts(29,10): error TS2300: Duplicate identifier 'AiController'.
+src/modules/ai/index.ts(30,25): error TS2307: Cannot find module './events/ai.events' or its corresponding type declarations.
+src/modules/ai/routes/ai.routes.ts(16,21): error TS2554: Expected 3 arguments, but got 2.
+src/modules/auth/index.ts(19,122): error TS2307: Cannot find module '../../../shared/middlewares/auth.middleware' or its corresponding type declarations.
+src/modules/auth/index.ts(20,65): error TS2307: Cannot find module './types' or its corresponding type declarations.
+src/modules/book/index.ts(24,10): error TS2300: Duplicate identifier 'BookController'.
+src/modules/book/index.ts(26,45): error TS2307: Cannot find module './types' or its corresponding type declarations.
+src/modules/book/index.ts(27,10): error TS2300: Duplicate identifier 'BookController'.
+src/modules/book/index.ts(28,27): error TS2307: Cannot find module './events/book.events' or its corresponding type declarations.
+src/modules/chat/controllers/chat.controller.ts(75,45): error TS2339: Property 'getNotifications' does not exist on type 'ChatService'.
+src/modules/chat/controllers/chat.controller.ts(85,30): error TS2339: Property 'markNotificationAsRead' does not exist on type 'ChatService'.
+src/modules/chat/index.ts(24,44): error TS2307: Cannot find module './types' or its corresponding type declarations.
+src/modules/community/index.ts(20,47): error TS2307: Cannot find module './types' or its corresponding type declarations.
+src/modules/community/routes/community.routes.ts(26,74): error TS2339: Property 'getDiscussions' does not exist on type 'CommunityController'.
+src/modules/community/routes/community.routes.ts(27,89): error TS2339: Property 'createDiscussion' does not exist on type 'CommunityController'.
+src/modules/community/routes/community.routes.ts(29,111): error TS2339: Property 'replyDiscussion' does not exist on type 'CommunityController'.
+src/modules/course/index.ts(33,49): error TS2307: Cannot find module './types' or its corresponding type declarations.
+src/modules/course/services/download.service.ts(1,24): error TS2305: Module '"@prisma/client"' has no exported member 'DownloadResourceType'.
+src/modules/course/services/download.service.ts(36,23): error TS2339: Property 'downloadToken' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/modules/course/services/download.service.ts(52,45): error TS2339: Property 'downloadToken' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/modules/course/services/download.service.ts(72,23): error TS2339: Property 'downloadLog' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/modules/course/services/download.service.ts(85,23): error TS2339: Property 'downloadToken' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/modules/course/services/download.service.ts(93,19): error TS2339: Property 'downloadLog' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/modules/course/services/download.service.ts(99,19): error TS2339: Property 'downloadLog' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/modules/course/services/download.service.ts(106,38): error TS2339: Property 'downloadToken' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/modules/course/services/library.service.ts(9,37): error TS2339: Property 'userLibrary' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/modules/course/services/library.service.ts(14,35): error TS2339: Property 'userLibrary' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/modules/course/services/library.service.ts(37,40): error TS2339: Property 'libraryCourse' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/modules/course/services/library.service.ts(44,23): error TS2339: Property 'libraryCourse' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/modules/course/services/library.service.ts(69,40): error TS2339: Property 'libraryBook' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/modules/course/services/library.service.ts(76,23): error TS2339: Property 'libraryBook' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/modules/course/services/library.service.ts(88,47): error TS2339: Property 'libraryCourse' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/modules/course/services/library.service.ts(95,25): error TS2339: Property 'libraryCourse' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/modules/course/services/library.service.ts(100,45): error TS2339: Property 'libraryBook' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/modules/course/services/library.service.ts(107,25): error TS2339: Property 'libraryBook' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/modules/course/services/library.service.ts(119,45): error TS2339: Property 'libraryCourse' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/modules/course/services/library.service.ts(126,23): error TS2339: Property 'libraryCourse' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/modules/course/services/library.service.ts(141,19): error TS2339: Property 'libraryCourse' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/modules/course/services/library.service.ts(155,19): error TS2339: Property 'libraryBook' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/modules/course/services/library.service.ts(179,25): error TS2339: Property 'libraryCourse' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/modules/course/services/library.service.ts(181,25): error TS2339: Property 'libraryBook' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/modules/payment/index.ts(31,50): error TS2307: Cannot find module './types' or its corresponding type declarations.
+src/modules/payment/services/payment.service.ts(336,23): error TS2339: Property 'commission' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/modules/platform/controllers/platform.controller.ts(15,51): error TS2339: Property 'createPlatform' does not exist on type 'PlatformService'.
+src/modules/platform/controllers/platform.controller.ts(26,49): error TS2551: Property 'getPlatforms' does not exist on type 'PlatformService'. Did you mean 'getUserPlatforms'?
+src/modules/platform/controllers/platform.controller.ts(36,51): error TS2339: Property 'getPlatform' does not exist on type 'PlatformService'.
+src/modules/platform/controllers/platform.controller.ts(59,50): error TS2339: Property 'requestJoin' does not exist on type 'PlatformService'.
+src/modules/platform/controllers/platform.controller.ts(70,34): error TS2339: Property 'approveJoinRequest' does not exist on type 'PlatformService'.
+src/modules/platform/controllers/platform.controller.ts(81,52): error TS2339: Property 'getRevenue' does not exist on type 'PlatformService'.
+src/modules/platform/index.ts(20,31): error TS2307: Cannot find module './types' or its corresponding type declarations.
+src/modules/platform/services/platform.service.ts(6,24): error TS2305: Module '"@prisma/client"' has no exported member 'PlatformStatus'.
+src/modules/platform/services/platform.service.ts(20,47): error TS2339: Property 'platformRequest' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/modules/platform/services/platform.service.ts(28,39): error TS2339: Property 'platformRequest' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/modules/platform/services/platform.service.ts(52,39): error TS2339: Property 'platformRequest' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/modules/platform/services/platform.service.ts(62,42): error TS2339: Property 'platformRequest' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/modules/platform/services/platform.service.ts(75,19): error TS2339: Property 'platformRequest' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/modules/platform/services/platform.service.ts(85,11): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type '(Without<PlatformCreateInput, PlatformUncheckedCreateInput> & PlatformUncheckedCreateInput) | (Without<...> & PlatformCreateInput)'.
+src/modules/platform/services/platform.service.ts(97,23): error TS2339: Property 'platformRequest' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/modules/platform/services/platform.service.ts(115,9): error TS2353: Object literal may only specify known properties, and 'settings' does not exist in type 'PlatformInclude<DefaultArgs>'.
+src/modules/platform/services/platform.service.ts(132,38): error TS2339: Property 'courses' does not exist on type '{ name: string; description: string | null; id: string; isActive: boolean; createdAt: Date; updatedAt: Date; coverImage: string | null; theme: PlatformTheme; slug: string; ownerId: string; commissionRate: number; logo: string | null; }'.
+src/modules/platform/services/platform.service.ts(164,9): error TS2353: Object literal may only specify known properties, and 'settings' does not exist in type 'PlatformInclude<DefaultArgs>'.
+src/modules/platform/services/platform.service.ts(203,18): error TS2353: Object literal may only specify known properties, and 'settings' does not exist in type 'PlatformInclude<DefaultArgs>'.
+src/modules/user/index.ts(20,10): error TS2300: Duplicate identifier 'UserService'.
+src/modules/user/index.ts(21,10): error TS2300: Duplicate identifier 'UserController'.
+src/modules/user/index.ts(23,20): error TS2307: Cannot find module './types' or its corresponding type declarations.
+src/modules/user/index.ts(24,48): error TS2307: Cannot find module './types' or its corresponding type declarations.
+src/modules/user/index.ts(25,10): error TS2300: Duplicate identifier 'UserService'.
+src/modules/user/index.ts(26,10): error TS2300: Duplicate identifier 'UserController'.
+src/shared/database/prisma.ts(12,21): error TS2307: Cannot find module '../config/env' or its corresponding type declarations.
+src/shared/database/redis.ts(12,21): error TS2307: Cannot find module '../config/env' or its corresponding type declarations.
+src/utils/cache.ts(1,10): error TS2459: Module '"../server"' declares 'redis' locally, but it is not exported.
+src/utils/socket.ts(3,10): error TS2459: Module '"../server"' declares 'prisma' locally, but it is not exported.
+src/utils/socket.ts(3,18): error TS2459: Module '"../server"' declares 'redis' locally, but it is not exported.
+src/validation/dependency-validator.ts(137,41): error TS2345: Argument of type 'string | NonSharedBuffer' is not assignable to parameter of type 'string'.
+  Type 'NonSharedBuffer' is not assignable to type 'string'.
+src/workers/video.worker.ts(2,10): error TS2459: Module '"../server"' declares 'redis' locally, but it is not exported.
+src/workers/video.worker.ts(2,17): error TS2459: Module '"../server"' declares 'prisma' locally, but it is not exported.
