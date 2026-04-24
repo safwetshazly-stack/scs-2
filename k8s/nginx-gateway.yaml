@@ -1,0 +1,75 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+data:
+  nginx.conf: |
+    events {
+        worker_connections 1024;
+    }
+    http {
+        upstream api_servers {
+            server scs-api-service:80;
+        }
+
+        # Rate limiting zone
+        limit_req_zone $binary_remote_addr zone=api_limit:10m rate=10r/s;
+
+        server {
+            listen 80;
+            
+            # Forward correlation ID or generate new
+            set $correlation_id $http_x_correlation_id;
+            if ($correlation_id = "") {
+                set $correlation_id $request_id;
+            }
+
+            location /api/ {
+                limit_req zone=api_limit burst=20 nodelay;
+                proxy_pass http://api_servers;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Correlation-ID $correlation_id;
+            }
+        }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-gateway
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: nginx-gateway
+  template:
+    metadata:
+      labels:
+        app: nginx-gateway
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:alpine
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: nginx-config-volume
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+      volumes:
+        - name: nginx-config-volume
+          configMap:
+            name: nginx-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-gateway-service
+spec:
+  type: LoadBalancer
+  selector:
+    app: nginx-gateway
+  ports:
+    - port: 80
+      targetPort: 80

@@ -1360,3 +1360,5 @@ model AuditLog {
   @@index([action])
   @@index([createdAt])
 }
+m o d e l   P r o c e s s e d E v e n t   {   i d   S t r i n g   @ i d   @ d e f a u l t ( u u i d ( ) ) ;   e v e n t I d   S t r i n g   @ u n i q u e ;   t o p i c   S t r i n g ;   c r e a t e d A t   D a t e T i m e   @ d e f a u l t ( n o w ( ) )   }  
+ 

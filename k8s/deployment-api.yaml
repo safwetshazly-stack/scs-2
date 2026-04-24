@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scs-api
+  labels:
+    app: scs-api
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: scs-api
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: scs-api
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "4000"
+    spec:
+      containers:
+        - name: scs-api
+          image: your-registry/scs-api:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 4000
+          envFrom:
+            - configMapRef:
+                name: scs-config
+            - secretRef:
+                name: scs-secrets
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "500m"
+              memory: "1Gi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 4000
+            initialDelaySeconds: 40
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 4000
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5

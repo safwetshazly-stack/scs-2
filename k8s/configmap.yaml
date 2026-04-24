@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: scs-config
+  namespace: default
+data:
+  NODE_ENV: "production"
+  PORT: "4000"
+  FRONTEND_URL: "https://scs-platform.com"
+  KAFKA_BROKERS: "kafka-service:9092"
+  KAFKA_CLIENT_ID: "scs-backend"
+  KAFKA_GROUP_ID: "scs-consumer-group"
+  AWS_REGION: "us-east-1"

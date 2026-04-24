@@ -30,6 +30,7 @@ import { startVideoWorker } from './workers/video.worker'
 import { socketHandler } from './utils/socket'
 import { errorHandler } from './middlewares/error.middleware'
 import { sanitizeInput } from './middlewares/sanitize.middleware'
+import { requestLogger } from './middlewares/requestLogger.middleware'
 import { logger } from './utils/logger'
 import { env } from './config/env'
 import { prisma } from './shared/database/prisma'
@@ -104,6 +105,7 @@ app.use((req, res, next) => {
 app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 app.use(hpp())
 app.use(sanitizeInput)
+app.use(requestLogger)
 
 if (env.NODE_ENV !== 'test') {
   app.use(morgan('combined', { stream: { write: (msg) => logger.info(msg.trim()) } }))
@@ -155,10 +157,20 @@ app.get('/health', async (_req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`
     await redis.ping()
+    
+    const memoryUsage = process.memoryUsage()
+    const formatMemory = (bytes: number) => `${Math.round(bytes / 1024 / 1024)} MB`
+    
     res.json({
       status: 'ok',
       timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
       version: process.env.npm_package_version || '1.0.0',
+      memory: {
+        rss: formatMemory(memoryUsage.rss),
+        heapTotal: formatMemory(memoryUsage.heapTotal),
+        heapUsed: formatMemory(memoryUsage.heapUsed),
+      },
       services: { database: 'up', redis: 'up' },
     })
   } catch (error) {

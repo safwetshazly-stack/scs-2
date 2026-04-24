@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scs-workers
+  labels:
+    app: scs-workers
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: scs-workers
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: scs-workers
+    spec:
+      containers:
+        - name: scs-workers
+          # Using the same image but running a different start command
+          image: your-registry/scs-api:latest
+          command: ["node", "dist/workers.js"]
+          envFrom:
+            - configMapRef:
+                name: scs-config
+            - secretRef:
+                name: scs-secrets
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "1000m"
+              memory: "2Gi"

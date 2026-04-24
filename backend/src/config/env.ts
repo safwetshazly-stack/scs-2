@@ -1,58 +1,58 @@
-import dotenv from 'dotenv'
-import path from 'path'
+import dotenv from 'dotenv';
+import path from 'path';
+import { z } from 'zod';
 
-dotenv.config({ path: path.join(__dirname, '../../.env') })
+dotenv.config({ path: path.join(__dirname, '../../.env') });
 
-function required(key: string): string {
-  const value = process.env[key]
-  if (!value) throw new Error(`Missing required environment variable: ${key}`)
-  return value
+const envSchema = z.object({
+  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  PORT: z.string().transform(Number).default('4000'),
+
+  DATABASE_URL: z.string().url(),
+  REDIS_URL: z.string().url().default('redis://localhost:6379'),
+
+  JWT_ACCESS_SECRET: z.string().min(10),
+  JWT_REFRESH_SECRET: z.string().min(10),
+  JWT_ACCESS_EXPIRES: z.string().default('15m'),
+  JWT_REFRESH_EXPIRES: z.string().default('30d'),
+
+  FRONTEND_URL: z.string().url().default('http://localhost:3000'),
+  MOBILE_URL: z.string().optional(),
+
+  OPENAI_API_KEY: z.string().optional(),
+  ANTHROPIC_API_KEY: z.string().optional(),
+  DEEPSEEK_API_KEY: z.string().optional(),
+
+  STRIPE_SECRET_KEY: z.string().optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().optional(),
+
+  LIVEKIT_API_KEY: z.string().optional(),
+  LIVEKIT_API_SECRET: z.string().optional(),
+
+  KAFKA_BROKERS: z.string().default('localhost:9092'),
+  KAFKA_CLIENT_ID: z.string().default('scs-backend'),
+  KAFKA_GROUP_ID: z.string().default('scs-group'),
+
+  AWS_ACCESS_KEY: z.string().optional(),
+  AWS_SECRET_KEY: z.string().optional(),
+  AWS_REGION: z.string().default('us-east-1'),
+  AWS_BUCKET: z.string().default('scs-platform'),
+  CDN_URL: z.string().url().default('https://cdn.scs-platform.com'),
+  R2_ENDPOINT: z.string().optional(),
+  WEBHOOK_SECRET: z.string().optional(),
+
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.string().transform(Number).default('587'),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  EMAIL_FROM: z.string().default('SCS Platform <noreply@scsplatform.com>'),
+});
+
+const _env = envSchema.safeParse(process.env);
+
+if (!_env.success) {
+  console.error('❌ Invalid environment variables:', _env.error.format());
+  process.exit(1);
 }
 
-function optional(key: string, fallback = ''): string {
-  return process.env[key] || fallback
-}
-
-export const env = {
-  NODE_ENV: optional('NODE_ENV', 'development') as 'development' | 'production' | 'test',
-  PORT: parseInt(optional('PORT', '4000')),
-
-  DATABASE_URL: required('DATABASE_URL'),
-  REDIS_URL: optional('REDIS_URL', 'redis://localhost:6379'),
-
-  JWT_ACCESS_SECRET: required('JWT_ACCESS_SECRET'),
-  JWT_REFRESH_SECRET: required('JWT_REFRESH_SECRET'),
-  JWT_ACCESS_EXPIRES: optional('JWT_ACCESS_EXPIRES', '15m'),
-  JWT_REFRESH_EXPIRES: optional('JWT_REFRESH_EXPIRES', '30d'),
-
-  FRONTEND_URL: optional('FRONTEND_URL', 'http://localhost:3000'),
-  MOBILE_URL: optional('MOBILE_URL', ''),
-
-  // AI Services - At least one is required for AI features to work
-  OPENAI_API_KEY: optional('OPENAI_API_KEY', ''),
-  ANTHROPIC_API_KEY: optional('ANTHROPIC_API_KEY', ''),
-  DEEPSEEK_API_KEY: optional('DEEPSEEK_API_KEY', ''),
-
-  // Payment Processing - Required for payment features
-  STRIPE_SECRET_KEY: optional('STRIPE_SECRET_KEY', ''),
-  STRIPE_WEBHOOK_SECRET: optional('STRIPE_WEBHOOK_SECRET', ''),
-
-  // Video Meetings - Optional, required for video conferencing features
-  LIVEKIT_API_KEY: optional('LIVEKIT_API_KEY', ''),
-  LIVEKIT_API_SECRET: optional('LIVEKIT_API_SECRET', ''),
-
-  // File Storage - Required for file uploads
-  AWS_ACCESS_KEY: optional('AWS_ACCESS_KEY', ''),
-  AWS_SECRET_KEY: optional('AWS_SECRET_KEY', ''),
-  AWS_REGION: optional('AWS_REGION', 'us-east-1'),
-  AWS_BUCKET: optional('AWS_BUCKET', 'scs-platform'),
-  CDN_URL: optional('CDN_URL', 'https://cdn.scs-platform.com'),
-  R2_ENDPOINT: optional('R2_ENDPOINT', ''),
-  WEBHOOK_SECRET: optional('WEBHOOK_SECRET', ''),
-
-  SMTP_HOST: optional('SMTP_HOST'),
-  SMTP_PORT: parseInt(optional('SMTP_PORT', '587')),
-  SMTP_USER: optional('SMTP_USER'),
-  SMTP_PASS: optional('SMTP_PASS'),
-  EMAIL_FROM: optional('EMAIL_FROM', 'SCS Platform <noreply@scsplatform.com>'),
-}
+export const env = _env.data;
