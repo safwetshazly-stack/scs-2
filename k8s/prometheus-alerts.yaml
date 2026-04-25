@@ -1,0 +1,35 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: scs-alerts
+  namespace: monitoring
+spec:
+  groups:
+  - name: SCSServiceAlerts
+    rules:
+    - alert: HighErrorRate
+      expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.05
+      for: 2m
+      labels:
+        severity: critical
+      annotations:
+        summary: "High HTTP 5xx Error Rate"
+        description: "Error rate is > 5% for the last 5 minutes."
+
+    - alert: APIHighLatency
+      expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) > 1.5
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High API Latency"
+        description: "95th percentile latency is > 1.5s."
+
+    - alert: KafkaLagHigh
+      expr: sum by (topic, consumergroup) (kafka_consumergroup_lag) > 10000
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High Kafka Consumer Lag"
+        description: "Consumer group {{ $labels.consumergroup }} is lagging by > 10,000 messages on topic {{ $labels.topic }}."

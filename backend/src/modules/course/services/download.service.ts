@@ -2,6 +2,7 @@ import { PrismaClient, DownloadResourceType } from '@prisma/client'
 import { randomBytes } from 'crypto'
 import { AppError } from '../../../utils/errors'
 import { logger } from '../../../utils/logger'
+import { LockService } from '../../../shared/lock/lock.service'
 
 export { DownloadResourceType }
 
@@ -9,6 +10,14 @@ export class DownloadService {
   constructor(private prisma: PrismaClient) {}
 
   async generateDownloadToken(userId: string, resourceType: DownloadResourceType, resourceId: string) {
+    let lockId: string | null = null;
+    try {
+      lockId = await LockService.acquireLock(`download:${userId}`, 10000);
+    } catch (error) {
+      throw new AppError('Duplicate request', 409);
+    }
+
+    try {
     const user = await this.prisma.user.findUnique({ where: { id: userId } })
     if (!user) {
       throw new AppError('User not found', 404)
@@ -48,6 +57,11 @@ export class DownloadService {
     logger.info(`Download token generated: ${userId} - ${resourceType}/${resourceId}`)
 
     return { token, expiresAt }
+    } finally {
+      if (lockId) {
+        await LockService.releaseLock(`download:${userId}`, lockId);
+      }
+    }
   }
 
   async validateDownloadToken(token: string) {
